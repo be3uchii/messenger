@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Messenger</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        :root{
+            --primary:#2a7fff;--primary-hover:#1a6fee;--primary-light:#e8f1ff;
+            --bg:#ffffff;--bg-secondary:#f5f6f8;--bg-input:#f0f2f5;--bg-hover:#eef0f3;
+            --text:#1a1a1a;--text-secondary:#65676b;--text-muted:#8e8e93;--text-light:#b0b3b8;
+            --border:#e4e6ea;--border-light:#f0f0f0;
+            --white:#ffffff;--danger:#ff3b30;--success:#34c759;--warning:#ff9500;
+            --shadow:0 1px 3px rgba(0,0,0,.08);--shadow-lg:0 4px 16px rgba(0,0,0,.1);
+            --radius:8px;--radius-lg:12px;
+        }
+        html,body{height:100%;overflow:hidden}
+        body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#e8ecf0;color:var(--text);font-size:13px;line-height:1.4}
+        svg{display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+        .app{max-width:420px;margin:0 auto;height:100%;position:relative;overflow:hidden;background:var(--bg)}
+        @media(max-width:420px){.app{max-width:100%}}
+        @media(min-width:768px){
+            body{display:flex;align-items:center;justify-content:center}
+            .app{height:90vh;max-height:780px;border-radius:16px;border:1px solid var(--border);box-shadow:var(--shadow-lg)}
+        }
+
+        .screen{position:absolute;inset:0;display:none;flex-direction:column;opacity:0;transition:opacity .25s}
+        .screen.active{display:flex;opacity:1}
+
+        .auth-screen{justify-content:center;align-items:center;padding:24px;background:var(--bg)}
+        .auth-wrap{width:100%;max-width:300px}
+        .auth-logo{text-align:center;margin-bottom:28px}
+        .auth-logo-icon{width:44px;height:44px;border-radius:12px;background:var(--primary);display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}
+        .auth-logo-icon svg{width:22px;height:22px;stroke:var(--white);stroke-width:2}
+        .auth-logo h1{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-.3px}
+        .auth-logo p{color:var(--text-muted);font-size:11px;margin-top:3px}
+        .auth-tabs{display:flex;background:var(--bg-input);border-radius:var(--radius);padding:2px;margin-bottom:18px}
+        .auth-tab{flex:1;padding:7px;text-align:center;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:.2s;color:var(--text-muted)}
+        .auth-tab.active{background:var(--white);color:var(--text);box-shadow:var(--shadow)}
+        .auth-form{display:none}.auth-form.active{display:block;animation:fadeUp .2s ease}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+        .field{margin-bottom:10px}
+        .field label{display:block;font-size:10px;font-weight:500;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+        .field-inner{position:relative}
+        .field-inner svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-light)}
+        .field-inner input{width:100%;padding:8px 10px 8px 30px;background:var(--bg-input);border:1.5px solid transparent;border-radius:var(--radius);font-size:12px;color:var(--text);font-family:inherit;outline:none;transition:.2s}
+        .field-inner input::placeholder{color:var(--text-light)}
+        .field-inner input:focus{border-color:var(--primary);background:var(--white);box-shadow:0 0 0 3px rgba(42,127,255,.1)}
+        .field-inner input.field-error{border-color:var(--danger);background:var(--white);box-shadow:0 0 0 3px rgba(255,59,48,.1)}
+        .field-hint{font-size:9px;color:var(--text-light);margin-top:3px}
+        .field-hint.error{color:var(--danger)}
+        .btn-primary{width:100%;padding:9px;border:none;border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--primary);color:var(--white);transition:.2s;margin-top:4px}
+        .btn-primary:hover{background:var(--primary-hover)}
+        .btn-primary:active{transform:scale(.98)}
+        .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+        .auth-error{color:var(--danger);font-size:10px;text-align:center;margin-top:8px;min-height:14px;opacity:0;transition:opacity .2s}
+        .auth-error.show{opacity:1}
+        .auth-error.success{color:var(--success)}
+
+        .toast{position:absolute;top:10px;left:50%;transform:translateX(-50%) translateY(-60px);padding:8px 16px;background:var(--text);color:var(--white);font-size:11px;font-weight:500;border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:50;transition:transform .3s ease;font-family:inherit;white-space:nowrap}
+        .toast.show{transform:translateX(-50%) translateY(0)}
+        .toast.toast-error{background:var(--danger)}
+        .toast.toast-warning{background:var(--warning)}
+
+        .topbar{padding:8px 14px;display:flex;align-items:center;justify-content:center;background:var(--bg);border-bottom:1px solid var(--border-light);min-height:44px}
+        .topbar-title{font-size:15px;font-weight:700;color:var(--text)}
+        .icon-btn{width:30px;height:30px;border-radius:var(--radius);background:transparent;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;color:var(--text-secondary)}
+        .icon-btn:hover{background:var(--bg-input)}
+        .icon-btn svg{width:18px;height:18px}
+
+        .content{flex:1;overflow-y:auto;padding-bottom:48px;scrollbar-width:none}
+        .content::-webkit-scrollbar{display:none}
+        .tab-pane{display:none;animation:fadeUp .15s ease}.tab-pane.active{display:block}
+
+        .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 30px;text-align:center}
+        .empty-icon{width:44px;height:44px;border-radius:50%;background:var(--bg-input);display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+        .empty-icon svg{width:20px;height:20px;color:var(--text-light);stroke-width:1.5}
+        .empty-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+        .empty-desc{font-size:11px;color:var(--text-muted);line-height:1.5;max-width:200px}
+
+        .search-wrap{padding:8px 14px}
+        .search-box{position:relative}
+        .search-box svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--text-light)}
+        .search-box input{width:100%;padding:7px 10px 7px 28px;background:var(--bg-input);border:none;border-radius:var(--radius);font-size:11px;color:var(--text);font-family:inherit;outline:none;transition:.2s}
+        .search-box input::placeholder{color:var(--text-light)}
+        .search-box input:focus{box-shadow:0 0 0 2px rgba(42,127,255,.15)}
+
+        .profile-sec{padding-bottom:20px}
+        .profile-banner{height:100px;position:relative;overflow:hidden;background:linear-gradient(135deg,#4a9eff,#2a7fff,#1a6aee);background-size:200% 200%;animation:gMove 6s ease-in-out infinite}
+        .profile-banner img{width:100%;height:100%;object-fit:cover}
+        @keyframes gMove{0%,100%{background-position:0 50%}50%{background-position:100% 50%}}
+        .profile-body{padding:0 16px;margin-top:-24px;position:relative;z-index:2}
+        .profile-top{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:8px}
+        .profile-ava{width:52px;height:52px;border-radius:50%;border:3px solid var(--bg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:var(--white);background:var(--primary);box-shadow:var(--shadow);overflow:hidden;flex-shrink:0}
+        .profile-ava img{width:100%;height:100%;object-fit:cover}
+        .profile-btns{display:flex;gap:6px}
+        .btn-outline{padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--white);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+        .btn-outline:hover{background:var(--bg-input)}
+        .profile-name{font-size:14px;font-weight:700;color:var(--text)}
+        .profile-handle{font-size:10px;color:var(--text-light);margin-top:1px}
+        .profile-stats{display:flex;justify-content:center;gap:0;padding:12px 0;border-top:1px solid var(--border-light);border-bottom:1px solid var(--border-light);margin:12px 0 0}
+        .stat-item{flex:1;text-align:center}
+        .stat-item+.stat-item{border-left:1px solid var(--border-light)}
+        .stat-val{font-size:14px;font-weight:700;color:var(--text)}
+        .stat-lbl{font-size:9px;color:var(--text-muted);margin-top:1px;text-transform:uppercase;letter-spacing:.3px}
+
+        .info-section{padding:14px 16px}
+        .info-header{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px}
+        .info-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+        .info-row:last-child{margin-bottom:0}
+        .info-row svg{width:14px;height:14px;color:var(--text-light);flex-shrink:0;margin-top:1px}
+        .info-label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+        .info-value{font-size:12px;color:var(--text);line-height:1.4}
+        .info-empty{font-size:11px;color:var(--text-light);font-style:italic}
+
+        .section-divider{height:6px;background:var(--bg-secondary)}
+        .logout-btn{display:block;width:calc(100% - 32px);margin:14px auto;padding:8px;border:none;border-radius:var(--radius);background:var(--bg-input);color:var(--danger);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;transition:.15s}
+        .logout-btn:hover{background:#fff0f0}
+
+        .bottom-nav{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:space-around;padding:2px 0;padding-bottom:max(2px,env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--border-light);z-index:20;min-height:46px}
+        .nav-item{display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;padding:4px 20px;border-radius:10px;transition:.15s;color:var(--text-light)}
+        .nav-item.active{color:var(--primary)}
+        .nav-item svg{width:19px;height:19px}
+        .nav-item .nav-lbl{font-size:9px;font-weight:600}
+
+        .chat-screen{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg);z-index:30}
+        .chat-screen.active{display:flex;animation:slideIn .2s ease}
+        @keyframes slideIn{from{transform:translateX(100%)}to{transform:none}}
+        .chat-header{padding:6px 10px;display:flex;align-items:center;gap:6px;background:var(--bg);border-bottom:1px solid var(--border-light);min-height:44px}
+        .chat-user{flex:1;display:flex;align-items:center;gap:8px}
+        .chat-user-ava{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--white);background:var(--primary)}
+        .chat-user-name{font-size:12px;font-weight:600;color:var(--text)}
+        .chat-user-status{font-size:9px;color:var(--text-light)}
+        .messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:4px;scrollbar-width:none;background:var(--bg-secondary)}
+        .messages::-webkit-scrollbar{display:none}
+        .msg{max-width:75%;padding:7px 10px;border-radius:12px;font-size:12px;line-height:1.4}
+        .msg.in{align-self:flex-start;background:var(--white);border:1px solid var(--border-light);border-bottom-left-radius:3px}
+        .msg.out{align-self:flex-end;background:var(--primary);color:var(--white);border-bottom-right-radius:3px}
+        .msg-time{font-size:8px;margin-top:2px;text-align:right;opacity:.5}
+        .chat-input-bar{padding:6px 10px;display:flex;align-items:center;gap:6px;background:var(--bg);border-top:1px solid var(--border-light)}
+        .chat-input-bar input{flex:1;padding:7px 10px;background:var(--bg-input);border:none;border-radius:var(--radius);font-size:11px;color:var(--text);font-family:inherit;outline:none}
+        .chat-input-bar input::placeholder{color:var(--text-light)}
+        .send-btn{width:28px;height:28px;border-radius:50%;background:var(--primary);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--white);flex-shrink:0;transition:.15s}
+        .send-btn:hover{background:var(--primary-hover)}
+        .send-btn svg{width:13px;height:13px}
+
+        .edit-screen{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg);z-index:30}
+        .edit-screen.active{display:flex;animation:slideIn .2s ease}
+        .edit-header{padding:6px 10px;display:flex;align-items:center;gap:6px;background:var(--bg);border-bottom:1px solid var(--border-light);min-height:44px}
+        .edit-header-title{flex:1;font-size:13px;font-weight:700;color:var(--text);text-align:center}
+        .edit-save{padding:5px 12px;border-radius:var(--radius);border:none;background:var(--primary);color:var(--white);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+        .edit-save:hover{background:var(--primary-hover)}
+        .edit-save:active{transform:scale(.97)}
+        .edit-save:disabled{opacity:.6;cursor:not-allowed;transform:none}
+        .edit-content{flex:1;overflow-y:auto;scrollbar-width:none}
+        .edit-content::-webkit-scrollbar{display:none}
+        .edit-banner{height:100px;position:relative;overflow:hidden;background:linear-gradient(135deg,#4a9eff,#2a7fff,#1a6aee);cursor:pointer;transition:.15s}
+        .edit-banner:hover{opacity:.85}
+        .edit-banner img{width:100%;height:100%;object-fit:cover}
+        .edit-banner-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25)}
+        .edit-banner-overlay svg{width:20px;height:20px;color:var(--white);stroke-width:1.5}
+        .edit-ava-wrap{display:flex;justify-content:center;margin-top:-28px;position:relative;z-index:2;margin-bottom:16px}
+        .edit-ava{width:56px;height:56px;border-radius:50%;border:3px solid var(--bg);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:var(--white);background:var(--primary);box-shadow:var(--shadow);cursor:pointer;position:relative;overflow:hidden;transition:.15s}
+        .edit-ava:hover{opacity:.85}
+        .edit-ava img{width:100%;height:100%;object-fit:cover}
+        .edit-ava-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);border-radius:50%}
+        .edit-ava-overlay svg{width:16px;height:16px;color:var(--white);stroke-width:1.5}
+        .edit-fields{padding:0 16px 20px}
+        .edit-field{margin-bottom:12px}
+        .edit-field label{display:block;font-size:10px;font-weight:500;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+        .edit-field input,.edit-field textarea{width:100%;padding:8px 10px;background:var(--bg-input);border:1.5px solid transparent;border-radius:var(--radius);font-size:12px;color:var(--text);font-family:inherit;outline:none;transition:.2s}
+        .edit-field input::placeholder,.edit-field textarea::placeholder{color:var(--text-light)}
+        .edit-field input:focus,.edit-field textarea:focus{border-color:var(--primary);background:var(--white);box-shadow:0 0 0 3px rgba(42,127,255,.1)}
+        .edit-field input.field-error,.edit-field textarea.field-error{border-color:var(--danger);box-shadow:0 0 0 3px rgba(255,59,48,.1)}
+        .edit-field textarea{resize:none;min-height:64px;line-height:1.5}
+        .edit-field .field-hint{font-size:9px;color:var(--text-light);margin-top:3px}
+        .edit-field .field-hint.error{color:var(--danger)}
+
+        .username-field{position:relative}
+        .username-field .at-prefix{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text-muted);font-weight:500;pointer-events:none}
+        .username-field input{padding-left:22px!important}
+
+        .name-row{display:flex;gap:8px}
+        .name-row .edit-field{flex:1}
+
+        .date-picker-row{display:flex;gap:6px}
+        .date-picker-row select{flex:1;padding:8px 6px;background:var(--bg-input);border:1.5px solid transparent;border-radius:var(--radius);font-size:11px;color:var(--text);font-family:inherit;outline:none;transition:.2s;cursor:pointer;-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23b0b3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+        .date-picker-row select:focus{border-color:var(--primary);background-color:var(--white);box-shadow:0 0 0 3px rgba(42,127,255,.1);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%232a7fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")}
+
+        .edit-section-title{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:12px;margin-top:6px;padding-top:12px;border-top:1px solid var(--border-light)}
+
+        input[type="file"]{display:none}
+
+        .otp-screen{justify-content:center;align-items:center;padding:24px;background:var(--bg)}
+        .otp-wrap{width:100%;max-width:300px;text-align:center}
+        .otp-icon{width:44px;height:44px;border-radius:50%;background:var(--primary-light);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px}
+        .otp-icon svg{width:20px;height:20px;color:var(--primary);stroke-width:1.8}
+        .otp-wrap h2{font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px}
+        .otp-wrap .otp-desc{font-size:11px;color:var(--text-muted);margin-bottom:20px;line-height:1.5}
+        .otp-wrap .otp-email{font-weight:600;color:var(--text)}
+        .otp-inputs{display:flex;gap:6px;justify-content:center;margin-bottom:16px}
+        .otp-inputs input{width:32px;height:38px;text-align:center;font-size:15px;font-weight:700;font-family:inherit;background:var(--bg-input);border:1.5px solid transparent;border-radius:var(--radius);color:var(--text);outline:none;transition:.2s;padding:0}
+        .otp-inputs input:focus{border-color:var(--primary);background:var(--white);box-shadow:0 0 0 3px rgba(42,127,255,.1)}
+        .otp-inputs input.filled{border-color:var(--primary);background:var(--primary-light)}
+        .otp-inputs input.otp-expired{border-color:var(--danger);background:#fff5f5;color:var(--danger)}
+        .otp-error{color:var(--danger);font-size:10px;min-height:14px;margin-bottom:8px;opacity:0;transition:opacity .2s}
+        .otp-error.show{opacity:1}
+        .otp-resend{font-size:10px;color:var(--text-muted);margin-top:10px}
+        .otp-resend button{background:none;border:none;color:var(--primary);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;padding:0}
+        .otp-resend button:disabled{color:var(--text-light);cursor:not-allowed}
+        .otp-back{margin-top:14px}
+        .otp-back button{background:none;border:none;color:var(--text-muted);font-size:10px;cursor:pointer;font-family:inherit;padding:4px 8px;transition:.15s}
+        .otp-back button:hover{color:var(--text)}
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="toast" id="toast"></div>
+
+    <div id="authScreen" class="screen auth-screen">
+        <div class="auth-wrap">
+            <div class="auth-logo">
+                <div class="auth-logo-icon">
+                    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                </div>
+                <h1>Messenger</h1>
+                <p>Быстрый и простой обмен сообщениями</p>
+            </div>
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="authTab('login')">Вход</div>
+                <div class="auth-tab" onclick="authTab('register')">Регистрация</div>
+            </div>
+            <form id="loginForm" class="auth-form active" onsubmit="doLogin(event)">
+                <div class="field">
+                    <label>Email</label>
+                    <div class="field-inner">
+                        <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 7l10 6 10-6"/></svg>
+                        <input type="text" placeholder="your@email.com" id="loginEmail" autocomplete="email">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Пароль</label>
+                    <div class="field-inner">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                        <input type="password" placeholder="Введите пароль" id="loginPass" autocomplete="current-password">
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary" id="loginBtn">Войти</button>
+                <div class="auth-error" id="loginError"></div>
+            </form>
+            <form id="regForm" class="auth-form" onsubmit="doRegister(event)">
+                <div class="field">
+                    <label>Имя <span style="color:var(--danger)">*</span></label>
+                    <div class="field-inner">
+                        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <input type="text" placeholder="От 3 до 12 букв" id="regName" maxlength="12">
+                    </div>
+                    <div class="field-hint" id="regNameHint"></div>
+                </div>
+                <div class="field">
+                    <label>Фамилия <span style="color:var(--text-light);font-weight:400;text-transform:none">(необязательно)</span></label>
+                    <div class="field-inner">
+                        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                        <input type="text" placeholder="От 4 до 15 букв" id="regSurname" maxlength="15">
+                    </div>
+                    <div class="field-hint" id="regSurnameHint"></div>
+                </div>
+                <div class="field">
+                    <label>Email <span style="color:var(--danger)">*</span></label>
+                    <div class="field-inner">
+                        <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 7l10 6 10-6"/></svg>
+                        <input type="text" placeholder="your@email.com" id="regEmail" autocomplete="email">
+                    </div>
+                    <div class="field-hint" id="regEmailHint"></div>
+                </div>
+                <div class="field">
+                    <label>Пароль <span style="color:var(--danger)">*</span></label>
+                    <div class="field-inner">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                        <input type="password" placeholder="Минимум 6 символов" id="regPass" autocomplete="new-password">
+                    </div>
+                    <div class="field-hint" id="regPassHint"></div>
+                </div>
+                <button type="submit" class="btn-primary" id="regBtn">Создать аккаунт</button>
+                <div class="auth-error" id="regError"></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="otpScreen" class="screen otp-screen">
+        <div class="otp-wrap">
+            <div class="otp-icon">
+                <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 7l10 6 10-6"/></svg>
+            </div>
+            <h2>Введите код</h2>
+            <div class="otp-desc">Мы отправили 8-значный код на<br><span class="otp-email" id="otpEmailDisplay"></span></div>
+            <div class="otp-inputs" id="otpInputs">
+                <input type="text" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+                <input type="text" maxlength="1" inputmode="numeric">
+                <input type="text" maxlength="1" inputmode="numeric">
+                <input type="text" maxlength="1" inputmode="numeric">
+                <input type="text" maxlength="1" inputmode="numeric">
+                <input type="text" maxlength="1" inputmode="numeric">
+                <input type="text" maxlength="1" inputmode="numeric">
+                <input type="text" maxlength="1" inputmode="numeric">
+            </div>
+            <div class="otp-error" id="otpError"></div>
+            <button class="btn-primary" id="otpSubmitBtn" onclick="verifyOtp()" disabled>Подтвердить</button>
+            <div class="otp-resend">
+                <span id="otpExpiry">Код действителен: <span id="otpExpiryCountdown">60</span>с</span>
+            </div>
+            <div class="otp-resend" style="margin-top:4px">
+                <span id="otpTimer">Отправить повторно через <span id="otpCountdown">60</span>с</span>
+                <button id="otpResendBtn" style="display:none" onclick="resendOtp()">Отправить код повторно</button>
+            </div>
+            <div class="otp-back">
+                <button onclick="backFromOtp()">Вернуться назад</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainScreen" class="screen main-screen">
+        <div class="topbar">
+            <div class="topbar-title" id="topTitle">Лента</div>
+        </div>
+        <div class="content">
+            <div id="paneHome" class="tab-pane active">
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    </div>
+                    <div class="empty-title">Лента пуста</div>
+                    <div class="empty-desc">Здесь будут появляться публикации от людей, на которых вы подписаны</div>
+                </div>
+            </div>
+            <div id="paneChats" class="tab-pane">
+                <div class="search-wrap">
+                    <div class="search-box">
+                        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" placeholder="Поиск людей и чатов...">
+                    </div>
+                </div>
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                    </div>
+                    <div class="empty-title">Нет сообщений</div>
+                    <div class="empty-desc">Начните общение, найдя пользователя через поиск</div>
+                </div>
+            </div>
+            <div id="paneProfile" class="tab-pane">
+                <div class="profile-sec">
+                    <div class="profile-banner" id="profileBanner"></div>
+                    <div class="profile-body">
+                        <div class="profile-top">
+                            <div class="profile-ava" id="profileAva">U</div>
+                            <div class="profile-btns">
+                                <button class="btn-outline" onclick="openEdit()">Редактировать</button>
+                            </div>
+                        </div>
+                        <div class="profile-name" id="profileName">Пользователь</div>
+                        <div class="profile-handle" id="profileHandle">Имя пользователя не задано</div>
+                        <div class="profile-stats">
+                            <div class="stat-item"><div class="stat-val">0</div><div class="stat-lbl">Публикаций</div></div>
+                            <div class="stat-item"><div class="stat-val">0</div><div class="stat-lbl">Подписчиков</div></div>
+                            <div class="stat-item"><div class="stat-val">0</div><div class="stat-lbl">Подписок</div></div>
+                        </div>
+                    </div>
+                    <div class="section-divider"></div>
+                    <div class="info-section" id="infoSection">
+                        <div class="info-header">Информация</div>
+                        <div class="info-row" id="infoBioRow" style="display:none">
+                            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            <div>
+                                <div class="info-label">О себе</div>
+                                <div class="info-value" id="infoBioText"></div>
+                            </div>
+                        </div>
+                        <div class="info-row" id="infoBirthdayRow" style="display:none">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <div>
+                                <div class="info-label">Дата рождения</div>
+                                <div class="info-value" id="infoBirthdayText"></div>
+                            </div>
+                        </div>
+                        <div id="infoEmpty" class="info-empty">Информация не указана</div>
+                    </div>
+                    <div class="section-divider"></div>
+                    <button class="logout-btn" onclick="logout()">Выйти из аккаунта</button>
+                </div>
+            </div>
+        </div>
+        <nav class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('home',this)">
+                <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span class="nav-lbl">Лента</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('chats',this)">
+                <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                <span class="nav-lbl">Чаты</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('profile',this)">
+                <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span class="nav-lbl">Профиль</span>
+            </div>
+        </nav>
+    </div>
+
+    <div id="chatScreen" class="chat-screen">
+        <div class="chat-header">
+            <div class="icon-btn" onclick="closeChat()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+            <div class="chat-user">
+                <div class="chat-user-ava" id="cAvatar">U</div>
+                <div>
+                    <div class="chat-user-name" id="cName">Пользователь</div>
+                    <div class="chat-user-status">в сети</div>
+                </div>
+            </div>
+            <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></svg></div>
+        </div>
+        <div class="messages" id="msgs">
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                </div>
+                <div class="empty-title">Нет сообщений</div>
+                <div class="empty-desc">Напишите первое сообщение, чтобы начать диалог</div>
+            </div>
+        </div>
+        <div class="chat-input-bar">
+            <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></div>
+            <input type="text" placeholder="Сообщение...">
+            <button class="send-btn"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+        </div>
+    </div>
+
+    <div id="editScreen" class="edit-screen">
+        <div class="edit-header">
+            <div class="icon-btn" onclick="closeEdit()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+            <div class="edit-header-title">Редактирование</div>
+            <button class="edit-save" id="editSaveBtn" onclick="saveProfile()">Сохранить</button>
+        </div>
+        <div class="edit-content">
+            <div class="edit-banner" id="editBanner" onclick="document.getElementById('bannerInput').click()">
+                <div class="edit-banner-overlay">
+                    <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </div>
+            </div>
+            <input type="file" id="bannerInput" accept="image/*" onchange="previewBanner(event)">
+            <div class="edit-ava-wrap">
+                <div class="edit-ava" id="editAva" onclick="document.getElementById('avaInput').click()">
+                    <span id="editAvaLetter">U</span>
+                    <div class="edit-ava-overlay">
+                        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    </div>
+                </div>
+            </div>
+            <input type="file" id="avaInput" accept="image/*" onchange="previewAva(event)">
+            <div class="edit-fields">
+                <div class="name-row">
+                    <div class="edit-field">
+                        <label>Имя <span style="color:var(--danger)">*</span></label>
+                        <input type="text" id="editName" placeholder="От 3 до 12" maxlength="12">
+                        <div class="field-hint" id="editNameHint"></div>
+                    </div>
+                    <div class="edit-field">
+                        <label>Фамилия</label>
+                        <input type="text" id="editSurname" placeholder="От 4 до 15" maxlength="15">
+                        <div class="field-hint" id="editSurnameHint"></div>
+                    </div>
+                </div>
+                <div class="edit-field">
+                    <label>Имя пользователя</label>
+                    <div class="username-field">
+                        <span class="at-prefix">@</span>
+                        <input type="text" id="editUsername" placeholder="username" maxlength="11">
+                    </div>
+                    <div class="field-hint" id="editUsernameHint">Латиница, цифры и подчёркивания, от 3 до 11</div>
+                </div>
+                <div class="edit-section-title">Информация</div>
+                <div class="edit-field">
+                    <label>О себе</label>
+                    <textarea id="editBio" placeholder="Расскажите о себе..." maxlength="200"></textarea>
+                    <div class="field-hint" id="editBioHint"><span id="bioCounter">0</span>/200</div>
+                </div>
+                <div class="edit-field">
+                    <label>Дата рождения</label>
+                    <div class="date-picker-row">
+                        <select id="birthDay"><option value="">День</option></select>
+                        <select id="birthMonth">
+                            <option value="">Месяц</option>
+                            <option value="1">Январь</option>
+                            <option value="2">Февраль</option>
+                            <option value="3">Март</option>
+                            <option value="4">Апрель</option>
+                            <option value="5">Май</option>
+                            <option value="6">Июнь</option>
+                            <option value="7">Июль</option>
+                            <option value="8">Август</option>
+                            <option value="9">Сентябрь</option>
+                            <option value="10">Октябрь</option>
+                            <option value="11">Ноябрь</option>
+                            <option value="12">Декабрь</option>
+                        </select>
+                        <select id="birthYear"><option value="">Год</option></select>
+                    </div>
+                    <div class="field-hint" id="editDateHint"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var SUPABASE_URL = 'https://qpznkcgcbvmxskavrpxp.supabase.co';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwem5rY2djYnZteHNrYXZycHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNTE0NzAsImV4cCI6MjA4NTkyNzQ3MH0.cJhTZM8lrYiW-YucSBdUKchV2Dszd_yxE-aTT0aFJPg';
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+var profile = {
+    id: null,
+    name: 'Пользователь',
+    surname: '',
+    username: '',
+    bio: '',
+    avatar_url: '',
+    banner_url: '',
+    birth_day: '',
+    birth_month: '',
+    birth_year: ''
+};
+
+var pendingAvaFile = null;
+var pendingBannerFile = null;
+var monthNames = ['','Января','Февраля','Марта','Апреля','Мая','Июня','Июля','Августа','Сентября','Октября','Ноября','Декабря'];
+var pendingOtpEmail = '';
+var pendingOtpName = '';
+var pendingOtpSurname = '';
+var otpTimerInterval = null;
+var otpExpiryInterval = null;
+var otpExpired = false;
+
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isOnlyLetters(str) {
+    return /^[a-zA-Zа-яА-ЯёЁ]+$/.test(str);
+}
+
+function isValidUsername(str) {
+    return /^[a-zA-Z0-9_]+$/.test(str);
+}
+
+function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast' + (type === 'error' ? ' toast-error' : type === 'warning' ? ' toast-warning' : '') + ' show';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+
+function showAuthError(form, msg, isSuccess) {
+    var el = document.getElementById(form + 'Error');
+    el.textContent = msg;
+    el.className = 'auth-error show' + (isSuccess ? ' success' : '');
+}
+
+function clearAuthErrors() {
+    document.getElementById('loginError').className = 'auth-error';
+    document.getElementById('regError').className = 'auth-error';
+    clearFieldErrors('reg');
+    clearFieldErrors('login');
+}
+
+function clearFieldErrors(prefix) {
+    var hints = document.querySelectorAll('#' + prefix + 'Form .field-hint');
+    hints.forEach(function(h) { h.textContent = ''; h.className = 'field-hint'; });
+    var inputs = document.querySelectorAll('#' + prefix + 'Form .field-inner input');
+    inputs.forEach(function(inp) { inp.classList.remove('field-error'); });
+}
+
+function setFieldError(id, hintId, msg) {
+    var input = document.getElementById(id);
+    var hint = document.getElementById(hintId);
+    if (input) input.classList.add('field-error');
+    if (hint) { hint.textContent = msg; hint.className = 'field-hint error'; }
+}
+
+function clearFieldError(id, hintId) {
+    var input = document.getElementById(id);
+    var hint = document.getElementById(hintId);
+    if (input) input.classList.remove('field-error');
+    if (hint) { hint.textContent = ''; hint.className = 'field-hint'; }
+}
+
+function translateError(msg) {
+    var t = {
+        'Invalid login credentials': 'Неверный email или пароль',
+        'User already registered': 'Этот email уже зарегистрирован',
+        'Password should be at least 6 characters': 'Пароль должен быть не менее 6 символов',
+        'Unable to validate email address: invalid format': 'Некорректный формат email',
+        'Email rate limit exceeded': 'Слишком много попыток, попробуйте позже',
+        'For security purposes, you can only request this after 60 seconds': 'Подождите 60 секунд перед повторной отправкой',
+        'Anonymous sign-ins are disabled': 'Заполните все поля',
+        'Signup requires a valid password': 'Введите корректный пароль',
+        'To signup, please provide your email': 'Укажите email для регистрации',
+        'User not found': 'Пользователь не найден',
+        'Email not confirmed': 'Email не подтверждён',
+        'Invalid Refresh Token: Refresh Token Not Found': 'Сессия истекла, войдите заново',
+        'New password should be different from the old password.': 'Новый пароль должен отличаться от старого',
+        'Auth session missing!': 'Сессия не найдена, войдите заново'
+    };
+    return t[msg] || msg;
+}
+
+function setLoading(btn, loading) {
+    if (!btn) return;
+    btn.disabled = loading;
+    if (loading) {
+        btn.dataset.orig = btn.textContent;
+        btn.textContent = '...';
+    } else {
+        btn.textContent = btn.dataset.orig || btn.textContent;
+    }
+}
+
+function initDatePicker() {
+    var yearSel = document.getElementById('birthYear');
+    for (var y = 2026; y >= 1800; y--) {
+        var o = document.createElement('option');
+        o.value = y;
+        o.textContent = y;
+        yearSel.appendChild(o);
+    }
+    updateDays();
+    document.getElementById('birthMonth').addEventListener('change', updateDays);
+    document.getElementById('birthYear').addEventListener('change', updateDays);
+}
+
+function getDaysInMonth(month, year) {
+    if (!month) return 31;
+    month = parseInt(month);
+    year = parseInt(year) || 2024;
+    if (month === 2) {
+        var leap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+        return leap ? 29 : 28;
+    }
+    if ([4,6,9,11].indexOf(month) !== -1) return 30;
+    return 31;
+}
+
+function updateDays() {
+    var daySel = document.getElementById('birthDay');
+    var month = document.getElementById('birthMonth').value;
+    var year = document.getElementById('birthYear').value;
+    var currentDay = daySel.value;
+    var maxDays = getDaysInMonth(month, year);
+    while (daySel.options.length > 1) daySel.remove(1);
+    for (var d = 1; d <= maxDays; d++) {
+        var o = document.createElement('option');
+        o.value = d;
+        o.textContent = d;
+        daySel.appendChild(o);
+    }
+    if (currentDay && parseInt(currentDay) <= maxDays) {
+        daySel.value = currentDay;
+    } else if (currentDay && parseInt(currentDay) > maxDays) {
+        daySel.value = maxDays;
+    }
+}
+
+function authTab(t) {
+    clearAuthErrors();
+    document.querySelectorAll('.auth-tab').forEach(function(el, i) {
+        el.classList.toggle('active', (t === 'login' && i === 0) || (t === 'register' && i === 1));
+    });
+    document.getElementById('loginForm').classList.toggle('active', t === 'login');
+    document.getElementById('regForm').classList.toggle('active', t === 'register');
+}
+
+function validateRegForm() {
+    var valid = true;
+    var name = document.getElementById('regName').value.trim();
+    var surname = document.getElementById('regSurname').value.trim();
+    var email = document.getElementById('regEmail').value.trim();
+    var password = document.getElementById('regPass').value;
+
+    clearFieldErrors('reg');
+
+    if (!name) {
+        setFieldError('regName', 'regNameHint', 'Имя обязательно');
+        valid = false;
+    } else if (name.length < 3) {
+        setFieldError('regName', 'regNameHint', 'Минимум 3 буквы');
+        valid = false;
+    } else if (name.length > 12) {
+        setFieldError('regName', 'regNameHint', 'Максимум 12 букв');
+        valid = false;
+    } else if (!isOnlyLetters(name)) {
+        setFieldError('regName', 'regNameHint', 'Только буквы');
+        valid = false;
+    }
+
+    if (surname) {
+        if (surname.length < 4) {
+            setFieldError('regSurname', 'regSurnameHint', 'Минимум 4 буквы');
+            valid = false;
+        } else if (surname.length > 15) {
+            setFieldError('regSurname', 'regSurnameHint', 'Максимум 15 букв');
+            valid = false;
+        } else if (!isOnlyLetters(surname)) {
+            setFieldError('regSurname', 'regSurnameHint', 'Только буквы');
+            valid = false;
+        }
+    }
+
+    if (!email) {
+        setFieldError('regEmail', 'regEmailHint', 'Email обязателен');
+        valid = false;
+    } else if (!isValidEmail(email)) {
+        setFieldError('regEmail', 'regEmailHint', 'Некорректный формат email');
+        valid = false;
+    }
+
+    if (!password) {
+        setFieldError('regPass', 'regPassHint', 'Пароль обязателен');
+        valid = false;
+    } else if (password.length < 6) {
+        setFieldError('regPass', 'regPassHint', 'Минимум 6 символов');
+        valid = false;
+    } else if (password.length > 72) {
+        setFieldError('regPass', 'regPassHint', 'Максимум 72 символа');
+        valid = false;
+    }
+
+    return valid;
+}
+
+function validateLoginForm() {
+    var valid = true;
+    var email = document.getElementById('loginEmail').value.trim();
+    var password = document.getElementById('loginPass').value;
+
+    if (!email) {
+        showAuthError('login', 'Введите email');
+        valid = false;
+    } else if (!isValidEmail(email)) {
+        showAuthError('login', 'Некорректный формат email');
+        valid = false;
+    } else if (!password) {
+        showAuthError('login', 'Введите пароль');
+        valid = false;
+    } else if (password.length < 6) {
+        showAuthError('login', 'Пароль не менее 6 символов');
+        valid = false;
+    }
+
+    return valid;
+}
+
+async function doRegister(e) {
+    e.preventDefault();
+    clearAuthErrors();
+
+    if (!validateRegForm()) return;
+
+    var btn = document.getElementById('regBtn');
+    var name = document.getElementById('regName').value.trim();
+    var surname = document.getElementById('regSurname').value.trim();
+    var email = document.getElementById('regEmail').value.trim();
+    var password = document.getElementById('regPass').value;
+
+    setLoading(btn, true);
+    try {
+        var result = await sb.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: { name: name, surname: surname }
+            }
+        });
+        if (result.error) {
+            showAuthError('reg', translateError(result.error.message));
+            setLoading(btn, false);
+            return;
+        }
+        if (result.data.session) {
+            await loadOrCreateProfile(result.data.user.id, name, surname);
+            showMain();
+        } else if (result.data.user) {
+            pendingOtpEmail = email;
+            pendingOtpName = name;
+            pendingOtpSurname = surname;
+            showOtpScreen();
+        }
+    } catch (err) {
+        showAuthError('reg', 'Ошибка соединения. Проверьте интернет');
+    }
+    setLoading(btn, false);
+}
+
+function showOtpScreen() {
+    document.getElementById('otpEmailDisplay').textContent = pendingOtpEmail;
+    document.getElementById('authScreen').classList.remove('active');
+    setTimeout(function() { document.getElementById('otpScreen').classList.add('active'); }, 60);
+    clearOtpInputs();
+    otpExpired = false;
+    startOtpTimer();
+    var inputs = document.querySelectorAll('#otpInputs input');
+    setTimeout(function() { inputs[0].focus(); }, 300);
+}
+
+function clearOtpInputs() {
+    var inputs = document.querySelectorAll('#otpInputs input');
+    inputs.forEach(function(inp) {
+        inp.value = '';
+        inp.classList.remove('filled');
+        inp.classList.remove('otp-expired');
+        inp.disabled = false;
+    });
+    document.getElementById('otpSubmitBtn').disabled = true;
+    document.getElementById('otpError').className = 'otp-error';
+    document.getElementById('otpError').textContent = '';
+}
+
+function startOtpTimer() {
+    clearInterval(otpTimerInterval);
+    clearInterval(otpExpiryInterval);
+    var seconds = 60;
+    var expiry = 60;
+    otpExpired = false;
+    document.getElementById('otpCountdown').textContent = seconds;
+    document.getElementById('otpTimer').style.display = '';
+    document.getElementById('otpResendBtn').style.display = 'none';
+    document.getElementById('otpExpiry').style.display = '';
+    document.getElementById('otpExpiry').style.color = '';
+    document.getElementById('otpExpiry').innerHTML = 'Код действителен: <span id="otpExpiryCountdown">' + expiry + '</span>с';
+
+    otpTimerInterval = setInterval(function() {
+        seconds--;
+        document.getElementById('otpCountdown').textContent = seconds;
+        if (seconds <= 0) {
+            clearInterval(otpTimerInterval);
+            document.getElementById('otpTimer').style.display = 'none';
+            document.getElementById('otpResendBtn').style.display = '';
+        }
+    }, 1000);
+
+    otpExpiryInterval = setInterval(function() {
+        expiry--;
+        var el = document.getElementById('otpExpiryCountdown');
+        if (el) el.textContent = expiry;
+        if (expiry <= 0) {
+            clearInterval(otpExpiryInterval);
+            otpExpired = true;
+            document.getElementById('otpExpiry').textContent = 'Код истёк. Запросите новый';
+            document.getElementById('otpExpiry').style.color = 'var(--danger)';
+            document.getElementById('otpSubmitBtn').disabled = true;
+            var inputs = document.querySelectorAll('#otpInputs input');
+            inputs.forEach(function(inp) {
+                inp.disabled = true;
+                inp.classList.add('otp-expired');
+            });
+            document.getElementById('otpError').textContent = 'Время вышло. Нажмите "Отправить код повторно"';
+            document.getElementById('otpError').className = 'otp-error show';
+        }
+    }, 1000);
+}
+
+async function resendOtp() {
+    var btn = document.getElementById('otpResendBtn');
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+        var res = await sb.auth.resend({ type: 'signup', email: pendingOtpEmail });
+        if (res.error) {
+            showToast(translateError(res.error.message), 'error');
+            btn.disabled = false;
+            btn.textContent = 'Отправить код повторно';
+            return;
+        }
+        clearOtpInputs();
+        startOtpTimer();
+        showToast('Код отправлен повторно');
+        var inputs = document.querySelectorAll('#otpInputs input');
+        setTimeout(function() { inputs[0].focus(); }, 100);
+    } catch (err) {
+        showToast('Ошибка отправки. Проверьте интернет', 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Отправить код повторно';
+}
+
+async function verifyOtp() {
+    if (otpExpired) {
+        document.getElementById('otpError').textContent = 'Код истёк. Запросите новый';
+        document.getElementById('otpError').className = 'otp-error show';
+        return;
+    }
+
+    var inputs = document.querySelectorAll('#otpInputs input');
+    var code = '';
+    inputs.forEach(function(inp) { code += inp.value; });
+
+    if (code.length !== 8) {
+        document.getElementById('otpError').textContent = 'Введите все 8 цифр кода';
+        document.getElementById('otpError').className = 'otp-error show';
+        return;
+    }
+
+    if (!/^\d{8}$/.test(code)) {
+        document.getElementById('otpError').textContent = 'Код должен содержать только цифры';
+        document.getElementById('otpError').className = 'otp-error show';
+        clearOtpInputs();
+        setTimeout(function() { inputs[0].focus(); }, 100);
+        return;
+    }
+
+    var btn = document.getElementById('otpSubmitBtn');
+    setLoading(btn, true);
+    try {
+        var result = await sb.auth.verifyOtp({ email: pendingOtpEmail, token: code, type: 'signup' });
+        if (result.error) {
+            var errMsg = 'Неверный код';
+            if (result.error.message.indexOf('expired') !== -1 || result.error.message.indexOf('Token has expired') !== -1) {
+                errMsg = 'Код истёк. Запросите новый';
+            } else if (result.error.message.indexOf('Invalid') !== -1) {
+                errMsg = 'Неверный код, попробуйте ещё раз';
+            }
+            document.getElementById('otpError').textContent = errMsg;
+            document.getElementById('otpError').className = 'otp-error show';
+            clearOtpInputs();
+            setTimeout(function() { inputs[0].focus(); }, 100);
+            setLoading(btn, false);
+            return;
+        }
+        if (result.data.session) {
+            await loadOrCreateProfile(result.data.user.id, pendingOtpName, pendingOtpSurname);
+            document.getElementById('otpScreen').classList.remove('active');
+            clearInterval(otpTimerInterval);
+            clearInterval(otpExpiryInterval);
+            showToast('Аккаунт создан');
+            setTimeout(function() { document.getElementById('mainScreen').classList.add('active'); }, 60);
+        }
+    } catch (err) {
+        document.getElementById('otpError').textContent = 'Ошибка проверки. Проверьте интернет';
+        document.getElementById('otpError').className = 'otp-error show';
+    }
+    setLoading(btn, false);
+}
+
+function backFromOtp() {
+    clearInterval(otpTimerInterval);
+    clearInterval(otpExpiryInterval);
+    otpExpired = false;
+    document.getElementById('otpScreen').classList.remove('active');
+    setTimeout(function() { document.getElementById('authScreen').classList.add('active'); }, 60);
+}
+
+(function() {
+    var inputs = document.querySelectorAll('#otpInputs input');
+    inputs.forEach(function(inp, i) {
+        inp.addEventListener('input', function() {
+            if (otpExpired) { this.value = ''; return; }
+            this.value = this.value.replace(/[^0-9]/g, '');
+            if (this.value) {
+                this.classList.add('filled');
+                if (i < inputs.length - 1) inputs[i + 1].focus();
+            } else {
+                this.classList.remove('filled');
+            }
+            checkOtpComplete();
+        });
+        inp.addEventListener('keydown', function(e) {
+            if (otpExpired) { e.preventDefault(); return; }
+            if (e.key === 'Backspace' && !this.value && i > 0) {
+                inputs[i - 1].focus();
+                inputs[i - 1].value = '';
+                inputs[i - 1].classList.remove('filled');
+                checkOtpComplete();
+            }
+            if (e.key === 'Enter') {
+                var code = '';
+                inputs.forEach(function(el) { code += el.value; });
+                if (code.length === 8) verifyOtp();
+            }
+        });
+        inp.addEventListener('paste', function(e) {
+            if (otpExpired) { e.preventDefault(); return; }
+            e.preventDefault();
+            var paste = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '').slice(0, 8);
+            if (!paste) return;
+            for (var j = 0; j < paste.length && (i + j) < inputs.length; j++) {
+                inputs[i + j].value = paste[j];
+                inputs[i + j].classList.add('filled');
+            }
+            var nextIdx = Math.min(i + paste.length, inputs.length - 1);
+            inputs[nextIdx].focus();
+            checkOtpComplete();
+        });
+        inp.addEventListener('focus', function() {
+            if (otpExpired) this.blur();
+        });
+    });
+})();
+
+function checkOtpComplete() {
+    var inputs = document.querySelectorAll('#otpInputs input');
+    var code = '';
+    inputs.forEach(function(el) { code += el.value; });
+    document.getElementById('otpSubmitBtn').disabled = code.length !== 8 || otpExpired;
+    if (code.length === 8 && !otpExpired) {
+        document.getElementById('otpError').className = 'otp-error';
+    }
+}
+
+async function doLogin(e) {
+    e.preventDefault();
+    clearAuthErrors();
+
+    if (!validateLoginForm()) return;
+
+    var btn = document.getElementById('loginBtn');
+    var email = document.getElementById('loginEmail').value.trim();
+    var password = document.getElementById('loginPass').value;
+
+    setLoading(btn, true);
+    try {
+        var result = await sb.auth.signInWithPassword({ email: email, password: password });
+        if (result.error) {
+            showAuthError('login', translateError(result.error.message));
+            setLoading(btn, false);
+            return;
+        }
+        if (!result.data.user || !result.data.session) {
+            showAuthError('login', 'Ошибка авторизации');
+            setLoading(btn, false);
+            return;
+        }
+        await loadOrCreateProfile(result.data.user.id, result.data.user.user_metadata?.name, result.data.user.user_metadata?.surname);
+        showToast('Вы вошли в аккаунт');
+        showMain();
+    } catch (err) {
+        showAuthError('login', 'Ошибка соединения. Проверьте интернет');
+    }
+    setLoading(btn, false);
+}
+
+async function logout() {
+    try {
+        await sb.auth.signOut();
+    } catch (err) {}
+    profile = { id: null, name: 'Пользователь', surname: '', username: '', bio: '', avatar_url: '', banner_url: '', birth_day: '', birth_month: '', birth_year: '' };
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPass').value = '';
+    document.getElementById('regName').value = '';
+    document.getElementById('regSurname').value = '';
+    document.getElementById('regEmail').value = '';
+    document.getElementById('regPass').value = '';
+    document.getElementById('mainScreen').classList.remove('active');
+    setTimeout(function() {
+        document.getElementById('authScreen').classList.add('active');
+        switchTab('home', document.querySelector('.nav-item'));
+    }, 60);
+    showToast('Вы вышли из аккаунта');
+}
+
+async function loadOrCreateProfile(userId, name, surname) {
+    profile.id = userId;
+    try {
+        var upsertData = { id: userId, name: name || 'Пользователь' };
+        if (surname) upsertData.surname = surname;
+        await sb.from('profiles').upsert(upsertData, { onConflict: 'id', ignoreDuplicates: true });
+        var result = await sb.from('profiles').select('*').eq('id', userId).maybeSingle();
+        if (result.error) {
+            console.error('Load profile error:', result.error);
+            profile.name = name || 'Пользователь';
+            profile.surname = surname || '';
+        } else if (result.data) {
+            profile.name = result.data.name || 'Пользователь';
+            profile.surname = result.data.surname || '';
+            profile.username = result.data.username || '';
+            profile.bio = result.data.bio || '';
+            profile.avatar_url = result.data.avatar_url || '';
+            profile.banner_url = result.data.banner_url || '';
+            profile.birth_day = result.data.birth_day || '';
+            profile.birth_month = result.data.birth_month || '';
+            profile.birth_year = result.data.birth_year || '';
+        } else {
+            profile.name = name || 'Пользователь';
+            profile.surname = surname || '';
+        }
+    } catch (err) {
+        console.error('Profile error:', err);
+        profile.name = name || 'Пользователь';
+        profile.surname = surname || '';
+    }
+    updateProfileUI();
+}
+
+function showMain() {
+    document.getElementById('authScreen').classList.remove('active');
+    setTimeout(function() { document.getElementById('mainScreen').classList.add('active'); }, 60);
+}
+
+function switchTab(t, el) {
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    el.classList.add('active');
+    document.querySelectorAll('.tab-pane').forEach(function(p) { p.classList.remove('active'); });
+    var m = { home: 'paneHome', chats: 'paneChats', profile: 'paneProfile' };
+    var titles = { home: 'Лента', chats: 'Чаты', profile: 'Профиль' };
+    document.getElementById(m[t]).classList.add('active');
+    document.getElementById('topTitle').textContent = titles[t];
+    document.querySelector('.content').scrollTop = 0;
+}
+
+function openChat(name, letter) {
+    document.getElementById('cName').textContent = name;
+    document.getElementById('cAvatar').textContent = letter;
+    document.getElementById('chatScreen').classList.add('active');
+}
+
+function closeChat() {
+    var s = document.getElementById('chatScreen');
+    s.style.transform = 'translateX(100%)';
+    s.style.transition = 'transform .2s ease';
+    setTimeout(function() { s.classList.remove('active'); s.style.transform = ''; s.style.transition = ''; }, 200);
+}
+
+function openEdit() {
+    document.getElementById('editName').value = profile.name;
+    document.getElementById('editSurname').value = profile.surname;
+    document.getElementById('editUsername').value = profile.username;
+    document.getElementById('editBio').value = profile.bio;
+    document.getElementById('bioCounter').textContent = profile.bio.length;
+    document.getElementById('birthMonth').value = profile.birth_month;
+    updateDays();
+    document.getElementById('birthDay').value = profile.birth_day;
+    document.getElementById('birthYear').value = profile.birth_year;
+
+    clearEditErrors();
+
+    var editBanner = document.getElementById('editBanner');
+    var existingBannerImg = editBanner.querySelector('img');
+    if (profile.banner_url) {
+        if (!existingBannerImg) {
+            var img = document.createElement('img');
+            img.src = profile.banner_url;
+            editBanner.insertBefore(img, editBanner.firstChild);
+        } else {
+            existingBannerImg.src = profile.banner_url;
+        }
+    } else if (existingBannerImg) {
+        existingBannerImg.remove();
+    }
+
+    var editAva = document.getElementById('editAva');
+    var existingAvaImg = editAva.querySelector('img');
+    var avaLetter = document.getElementById('editAvaLetter');
+    if (profile.avatar_url) {
+        if (!existingAvaImg) {
+            var img = document.createElement('img');
+            img.src = profile.avatar_url;
+            editAva.insertBefore(img, editAva.firstChild);
+        } else {
+            existingAvaImg.src = profile.avatar_url;
+        }
+        avaLetter.style.display = 'none';
+    } else {
+        if (existingAvaImg) existingAvaImg.remove();
+        avaLetter.style.display = '';
+        avaLetter.textContent = profile.name.charAt(0).toUpperCase();
+    }
+
+    pendingAvaFile = null;
+    pendingBannerFile = null;
+    document.getElementById('avaInput').value = '';
+    document.getElementById('bannerInput').value = '';
+    document.getElementById('editScreen').classList.add('active');
+}
+
+function clearEditErrors() {
+    var hints = document.querySelectorAll('.edit-fields .field-hint');
+    hints.forEach(function(h) {
+        if (h.id === 'editBioHint') {
+            h.className = 'field-hint';
+            h.innerHTML = '<span id="bioCounter">' + (document.getElementById('editBio').value || '').length + '</span>/200';
+        } else if (h.id === 'editUsernameHint') {
+            h.className = 'field-hint';
+            h.textContent = 'Латиница, цифры и подчёркивания, от 3 до 11';
+        } else if (h.id === 'editDateHint') {
+            h.className = 'field-hint';
+            h.textContent = '';
+        } else {
+            h.className = 'field-hint';
+            h.textContent = '';
+        }
+    });
+    var inputs = document.querySelectorAll('.edit-fields input, .edit-fields textarea');
+    inputs.forEach(function(inp) { inp.classList.remove('field-error'); });
+}
+
+function closeEdit() {
+    pendingAvaFile = null;
+    pendingBannerFile = null;
+    var s = document.getElementById('editScreen');
+    s.style.transform = 'translateX(100%)';
+    s.style.transition = 'transform .2s ease';
+    setTimeout(function() { s.classList.remove('active'); s.style.transform = ''; s.style.transition = ''; }, 200);
+}
+
+function previewBanner(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+        showToast('Выберите изображение', 'error');
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        showToast('Максимум 5 МБ', 'error');
+        return;
+    }
+    pendingBannerFile = file;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        var banner = document.getElementById('editBanner');
+        var existing = banner.querySelector('img');
+        if (!existing) {
+            var img = document.createElement('img');
+            img.src = ev.target.result;
+            banner.insertBefore(img, banner.firstChild);
+        } else {
+            existing.src = ev.target.result;
+        }
+    };
+    reader.onerror = function() { showToast('Ошибка чтения файла', 'error'); };
+    reader.readAsDataURL(file);
+}
+
+function previewAva(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+        showToast('Выберите изображение', 'error');
+        return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('Максимум 2 МБ', 'error');
+        return;
+    }
+    pendingAvaFile = file;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+        var ava = document.getElementById('editAva');
+        var existing = ava.querySelector('img');
+        var letter = document.getElementById('editAvaLetter');
+        if (!existing) {
+            var img = document.createElement('img');
+            img.src = ev.target.result;
+            ava.insertBefore(img, ava.firstChild);
+        } else {
+            existing.src = ev.target.result;
+        }
+        letter.style.display = 'none';
+    };
+    reader.onerror = function() { showToast('Ошибка чтения файла', 'error'); };
+    reader.readAsDataURL(file);
+}
+
+async function uploadImage(bucket, file) {
+    try {
+        var ext = file.name.split('.').pop() || 'jpg';
+        var path = profile.id + '/' + bucket + '.' + ext;
+        var res = await sb.storage.from(bucket).upload(path, file, { upsert: true, contentType: file.type });
+        if (res.error) {
+            console.error('Upload error:', res.error);
+            showToast('Ошибка загрузки изображения', 'error');
+            return null;
+        }
+        var urlRes = sb.storage.from(bucket).getPublicUrl(path);
+        return urlRes.data.publicUrl + '?t=' + Date.now();
+    } catch (err) {
+        console.error('Upload error:', err);
+        showToast('Ошибка загрузки', 'error');
+        return null;
+    }
+}
+
+function validateEditForm() {
+    var valid = true;
+    clearEditErrors();
+
+    var name = document.getElementById('editName').value.trim();
+    var surname = document.getElementById('editSurname').value.trim();
+    var username = document.getElementById('editUsername').value.trim();
+    var bio = document.getElementById('editBio').value.trim();
+    var bDay = document.getElementById('birthDay').value;
+    var bMonth = document.getElementById('birthMonth').value;
+    var bYear = document.getElementById('birthYear').value;
+
+    if (!name) {
+        document.getElementById('editName').classList.add('field-error');
+        var h = document.getElementById('editNameHint');
+        h.textContent = 'Имя обязательно';
+        h.className = 'field-hint error';
+        valid = false;
+    } else if (name.length < 3) {
+        document.getElementById('editName').classList.add('field-error');
+        var h = document.getElementById('editNameHint');
+        h.textContent = 'Минимум 3 буквы';
+        h.className = 'field-hint error';
+        valid = false;
+    } else if (name.length > 12) {
+        document.getElementById('editName').classList.add('field-error');
+        var h = document.getElementById('editNameHint');
+        h.textContent = 'Максимум 12 букв';
+        h.className = 'field-hint error';
+        valid = false;
+    } else if (!isOnlyLetters(name)) {
+        document.getElementById('editName').classList.add('field-error');
+        var h = document.getElementById('editNameHint');
+        h.textContent = 'Только буквы';
+        h.className = 'field-hint error';
+        valid = false;
+    }
+
+    if (surname) {
+        if (surname.length < 4) {
+            document.getElementById('editSurname').classList.add('field-error');
+            var h = document.getElementById('editSurnameHint');
+            h.textContent = 'Минимум 4 буквы';
+            h.className = 'field-hint error';
+            valid = false;
+        } else if (surname.length > 15) {
+            document.getElementById('editSurname').classList.add('field-error');
+            var h = document.getElementById('editSurnameHint');
+            h.textContent = 'Максимум 15 букв';
+            h.className = 'field-hint error';
+            valid = false;
+        } else if (!isOnlyLetters(surname)) {
+            document.getElementById('editSurname').classList.add('field-error');
+            var h = document.getElementById('editSurnameHint');
+            h.textContent = 'Только буквы';
+            h.className = 'field-hint error';
+            valid = false;
+        }
+    }
+
+    if (username) {
+        if (username.length < 3) {
+            document.getElementById('editUsername').classList.add('field-error');
+            var h = document.getElementById('editUsernameHint');
+            h.textContent = 'Минимум 3 символа';
+            h.className = 'field-hint error';
+            valid = false;
+        } else if (username.length > 11) {
+            document.getElementById('editUsername').classList.add('field-error');
+            var h = document.getElementById('editUsernameHint');
+            h.textContent = 'Максимум 11 символов';
+            h.className = 'field-hint error';
+            valid = false;
+        } else if (!isValidUsername(username)) {
+            document.getElementById('editUsername').classList.add('field-error');
+            var h = document.getElementById('editUsernameHint');
+            h.textContent = 'Только латиница, цифры и _';
+            h.className = 'field-hint error';
+            valid = false;
+        }
+    }
+
+    if (bio.length > 200) {
+        document.getElementById('editBio').classList.add('field-error');
+        var h = document.getElementById('editBioHint');
+        h.innerHTML = '<span style="color:var(--danger)">' + bio.length + '/200 — слишком длинное</span>';
+        h.className = 'field-hint error';
+        valid = false;
+    }
+
+    var hasPartialDate = (bDay || bMonth || bYear) && !(bDay && bMonth && bYear);
+    if (hasPartialDate) {
+        var h = document.getElementById('editDateHint');
+        h.textContent = 'Заполните все поля даты или оставьте пустыми';
+        h.className = 'field-hint error';
+        valid = false;
+    }
+
+    if (bDay && bMonth && bYear) {
+        var y = parseInt(bYear);
+        var now = new Date();
+        if (y > now.getFullYear()) {
+            var h = document.getElementById('editDateHint');
+            h.textContent = 'Год не может быть в будущем';
+            h.className = 'field-hint error';
+            valid = false;
+        }
+        var selectedDate = new Date(y, parseInt(bMonth) - 1, parseInt(bDay));
+        if (selectedDate > now) {
+            var h = document.getElementById('editDateHint');
+            h.textContent = 'Дата рождения не может быть в будущем';
+            h.className = 'field-hint error';
+            valid = false;
+        }
+    }
+
+    return valid;
+}
+
+async function saveProfile() {
+    if (!validateEditForm()) return;
+
+    var name = document.getElementById('editName').value.trim();
+    var surname = document.getElementById('editSurname').value.trim();
+    var username = document.getElementById('editUsername').value.trim().replace(/[^a-zA-Z0-9_]/g, '');
+    var bio = document.getElementById('editBio').value.trim();
+    var bDay = document.getElementById('birthDay').value;
+    var bMonth = document.getElementById('birthMonth').value;
+    var bYear = document.getElementById('birthYear').value;
+
+    var btn = document.getElementById('editSaveBtn');
+    setLoading(btn, true);
+
+    try {
+        if (pendingAvaFile) {
+            var url = await uploadImage('avatars', pendingAvaFile);
+            if (url) profile.avatar_url = url;
+            pendingAvaFile = null;
+        }
+        if (pendingBannerFile) {
+            var url = await uploadImage('banners', pendingBannerFile);
+            if (url) profile.banner_url = url;
+            pendingBannerFile = null;
+        }
+
+        profile.name = name;
+        profile.surname = surname;
+        profile.username = username;
+        profile.bio = bio;
+        profile.birth_day = bDay;
+        profile.birth_month = bMonth;
+        profile.birth_year = bYear;
+
+        var updateData = {
+            name: profile.name,
+            surname: profile.surname || null,
+            username: profile.username || null,
+            bio: profile.bio,
+            avatar_url: profile.avatar_url,
+            banner_url: profile.banner_url,
+            birth_day: profile.birth_day ? parseInt(profile.birth_day) : null,
+            birth_month: profile.birth_month ? parseInt(profile.birth_month) : null,
+            birth_year: profile.birth_year ? parseInt(profile.birth_year) : null
+        };
+
+        var result = await sb.from('profiles').update(updateData).eq('id', profile.id);
+
+        if (result.error) {
+            if (result.error.code === '23505') {
+                showToast('Имя пользователя уже занято', 'error');
+                document.getElementById('editUsername').classList.add('field-error');
+                var h = document.getElementById('editUsernameHint');
+                h.textContent = 'Это имя уже занято';
+                h.className = 'field-hint error';
+            } else {
+                showToast('Ошибка сохранения: ' + (result.error.message || 'неизвестная'), 'error');
+            }
+            setLoading(btn, false);
+            return;
+        }
+
+        updateProfileUI();
+        closeEdit();
+        showToast('Профиль сохранён');
+    } catch (err) {
+        console.error(err);
+        showToast('Ошибка соединения. Проверьте интернет', 'error');
+    }
+    setLoading(btn, false);
+}
+
+function updateProfileUI() {
+    var fullName = profile.name;
+    if (profile.surname) fullName += ' ' + profile.surname;
+    document.getElementById('profileName').textContent = fullName;
+
+    var handleEl = document.getElementById('profileHandle');
+    if (profile.username) {
+        handleEl.textContent = '@' + profile.username;
+    } else {
+        handleEl.textContent = 'Имя пользователя не задано';
+    }
+
+    var bioRow = document.getElementById('infoBioRow');
+    var bioText = document.getElementById('infoBioText');
+    if (profile.bio) {
+        bioText.textContent = profile.bio;
+        bioRow.style.display = 'flex';
+    } else {
+        bioRow.style.display = 'none';
+    }
+
+    var bdayRow = document.getElementById('infoBirthdayRow');
+    var bdayText = document.getElementById('infoBirthdayText');
+    if (profile.birth_day && profile.birth_month && profile.birth_year) {
+        bdayText.textContent = profile.birth_day + ' ' + monthNames[parseInt(profile.birth_month)] + ' ' + profile.birth_year;
+        bdayRow.style.display = 'flex';
+    } else {
+        bdayRow.style.display = 'none';
+    }
+
+    var infoEmpty = document.getElementById('infoEmpty');
+    if (profile.bio || (profile.birth_day && profile.birth_month && profile.birth_year)) {
+        infoEmpty.style.display = 'none';
+    } else {
+        infoEmpty.style.display = 'block';
+    }
+
+    var profileAva = document.getElementById('profileAva');
+    var existingImg = profileAva.querySelector('img');
+    if (profile.avatar_url) {
+        if (!existingImg) {
+            var img = document.createElement('img');
+            img.src = profile.avatar_url;
+            profileAva.textContent = '';
+            profileAva.appendChild(img);
+        } else {
+            existingImg.src = profile.avatar_url;
+        }
+    } else {
+        if (existingImg) existingImg.remove();
+        profileAva.textContent = profile.name.charAt(0).toUpperCase();
+    }
+
+    var profileBanner = document.getElementById('profileBanner');
+    var existingBannerImg = profileBanner.querySelector('img');
+    if (profile.banner_url) {
+        if (!existingBannerImg) {
+            var img = document.createElement('img');
+            img.src = profile.banner_url;
+            profileBanner.appendChild(img);
+        } else {
+            existingBannerImg.src = profile.banner_url;
+        }
+    } else {
+        if (existingBannerImg) existingBannerImg.remove();
+    }
+}
+
+document.getElementById('editUsername').addEventListener('input', function() {
+    this.value = this.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 11);
+});
+
+document.getElementById('editName').addEventListener('input', function() {
+    this.value = this.value.slice(0, 12);
+});
+
+document.getElementById('editSurname').addEventListener('input', function() {
+    this.value = this.value.slice(0, 15);
+});
+
+document.getElementById('editBio').addEventListener('input', function() {
+    var len = this.value.length;
+    var counter = document.getElementById('bioCounter');
+    if (counter) counter.textContent = len;
+    if (len > 200) {
+        this.value = this.value.slice(0, 200);
+        document.getElementById('bioCounter').textContent = 200;
+    }
+});
+
+document.getElementById('regName').addEventListener('input', function() {
+    clearFieldError('regName', 'regNameHint');
+});
+
+document.getElementById('regSurname').addEventListener('input', function() {
+    clearFieldError('regSurname', 'regSurnameHint');
+});
+
+document.getElementById('regEmail').addEventListener('input', function() {
+    clearFieldError('regEmail', 'regEmailHint');
+});
+
+document.getElementById('regPass').addEventListener('input', function() {
+    clearFieldError('regPass', 'regPassHint');
+});
+
+document.getElementById('loginEmail').addEventListener('input', function() {
+    document.getElementById('loginError').className = 'auth-error';
+});
+
+document.getElementById('loginPass').addEventListener('input', function() {
+    document.getElementById('loginError').className = 'auth-error';
+});
+
+async function init() {
+    initDatePicker();
+    try {
+        var result = await sb.auth.getSession();
+        if (result.error) {
+            console.error('Session error:', result.error);
+            document.getElementById('authScreen').classList.add('active');
+            return;
+        }
+        if (result.data.session) {
+            var user = result.data.session.user;
+            if (!user) {
+                document.getElementById('authScreen').classList.add('active');
+                return;
+            }
+            await loadOrCreateProfile(user.id, user.user_metadata?.name, user.user_metadata?.surname);
+            document.getElementById('mainScreen').classList.add('active');
+        } else {
+            document.getElementById('authScreen').classList.add('active');
+        }
+    } catch (err) {
+        console.error('Init error:', err);
+        document.getElementById('authScreen').classList.add('active');
+        showToast('Ошибка загрузки. Проверьте интернет', 'error');
+    }
+}
+
+sb.auth.onAuthStateChange(function(event, session) {
+    if (event === 'TOKEN_REFRESHED' && session) {
+        profile.id = session.user.id;
+    }
+    if (event === 'SIGNED_OUT') {
+        profile = { id: null, name: 'Пользователь', surname: '', username: '', bio: '', avatar_url: '', banner_url: '', birth_day: '', birth_month: '', birth_year: '' };
+    }
+});
+
+init();
+</script>
+</body>
+</html>
