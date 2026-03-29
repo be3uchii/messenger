@@ -265,10 +265,8 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
 
   var _s1 = 'https://yktcwkjw'; var _s2 = 'vsqxjhu'; var _s3 = 'gcank.supabase.co';
   var SURL = _s1 + _s2 + _s3;
-
   var _k1 = 'sb_publi'; var _k2 = 'shable_1vsWjer'; var _k3 = 'wZq95L0n9czgXsA_4BEuxYmB';
   var SKEY = _k1 + _k2 + _k3;
-
   var BUCKET = ['ima','ges'].join('');
   var IMGBB_KEY = ['a8a01cd8','c5e7ea81','f94ea85d','a3c7e494'].join('');
 
@@ -327,9 +325,9 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
   var currentIsVideo = false;
   var ttlInterval = null;
   var currentTab = 'active';
-  var dbCache = new Map();
   var imgCache = new Map();
   var deletedIds = JSON.parse(localStorage.getItem('imgup_deleted') || '[]');
+  var _profileRows = null;
 
   function saveDeleted() { localStorage.setItem('imgup_deleted', JSON.stringify(deletedIds)); }
 
@@ -356,7 +354,7 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
     document.querySelectorAll('.nav button').forEach(function(b, i) {
       b.classList.toggle('active', (i === 0 && name === 'upload') || (i === 1 && name === 'profile'));
     });
-    if (name === 'profile') loadProfile();
+    if (name === 'profile') { _profileRows = null; loadProfile(); }
   };
 
   drop.addEventListener('click', function() { fileInput.click(); });
@@ -409,7 +407,7 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
   }
 
   async function tryFetch(url, opts, ms) {
-    ms = ms || 12000;
+    ms = ms || 8000;
     var ctrl = new AbortController();
     var timer = setTimeout(function() { ctrl.abort(); }, ms);
     try {
@@ -500,7 +498,7 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
         user_id: USER_ID
       }),
       mode: 'cors', credentials: 'omit'
-    }).catch(function() { return null; });
+    }, 10000).catch(function() { return null; });
 
     if (r && r.ok) {
       var rows = await r.json().catch(function() { return []; });
@@ -528,32 +526,31 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
       method: 'POST',
       headers: makeHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ image_id: id }), mode: 'cors', credentials: 'omit'
-    }).catch(function() {});
+    }, 5000).catch(function() {});
   }
 
   async function getViews(id) {
     var r = await tryFetch(SURL + '/rest/v1/images?id=eq.' + id + '&select=views', {
       headers: HDRS, mode: 'cors', credentials: 'omit'
-    }).catch(function() { return null; });
+    }, 5000).catch(function() { return null; });
     if (!r || !r.ok) return 0;
     var rows = await r.json().catch(function() { return []; });
     return rows[0] ? rows[0].views : 0;
   }
 
   async function fetchImageRow(viewId) {
-    if (dbCache.has(viewId)) return dbCache.get(viewId);
-    var endpoint = SURL + '/rest/v1/images?id=eq.' + encodeURIComponent(viewId) + '&select=url,password_hash,views,expires_at,is_video,mime_type';
+    var endpoint = SURL + '/rest/v1/images?id=eq.' + encodeURIComponent(viewId) + '&select=url,password,views,expires_at,is_video,mime_type';
     var attempts = [
-      function() { return tryFetch(endpoint, { headers: HDRS, mode: 'cors', credentials: 'omit' }); },
-      function() { return tryFetch('https://corsproxy.io/?' + encodeURIComponent(endpoint), { headers: HDRS, mode: 'cors', credentials: 'omit' }); },
-      function() { return tryFetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(endpoint), { headers: HDRS, mode: 'cors', credentials: 'omit' }); }
+      function() { return tryFetch(endpoint, { headers: HDRS, mode: 'cors', credentials: 'omit' }, 8000); },
+      function() { return tryFetch('https://corsproxy.io/?' + encodeURIComponent(endpoint), { headers: HDRS, mode: 'cors', credentials: 'omit' }, 8000); },
+      function() { return tryFetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(endpoint), { headers: HDRS, mode: 'cors', credentials: 'omit' }, 8000); }
     ];
     for (var i = 0; i < attempts.length; i++) {
       try {
         var r = await attempts[i]();
         if (!r || !r.ok) continue;
         var rows = await r.json().catch(function() { return []; });
-        if (rows.length) { dbCache.set(viewId, rows[0]); return rows[0]; }
+        if (rows.length) return rows[0];
       } catch(e) {}
     }
     return null;
@@ -648,12 +645,12 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
     var st = document.getElementById('pw-apply-status');
     btn.disabled = true; btn.textContent = '...';
     st.style.color = 'var(--text3)'; st.textContent = 'применяю...';
-    var payload = pw ? { password_hash: await sha256(pw) } : { password_hash: null };
+    var payload = pw ? { password: await sha256(pw) } : { password: null };
     var r = await tryFetch(SURL + '/rest/v1/images?id=eq.' + currentImageId, {
       method: 'PATCH',
       headers: makeHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
       body: JSON.stringify(payload), mode: 'cors', credentials: 'omit'
-    }).catch(function() { return null; });
+    }, 8000).catch(function() { return null; });
     btn.disabled = false; btn.textContent = 'применить';
     if (!r || !r.ok) { st.style.color = 'var(--red)'; st.textContent = 'ошибка, попробуй снова'; return; }
     if (pw) {
@@ -709,23 +706,23 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
   async function loadProfile() {
     var wrap = document.getElementById('file-list-wrap');
     wrap.innerHTML = '<div class="profile-loading">загружаю...</div>';
-    var endpoint = SURL + '/rest/v1/images?user_id=eq.' + USER_ID + '&order=created_at.desc&limit=100&select=id,filename,original_name,url,size,mime_type,is_video,views,expires_at,password_hash';
+
+    var endpoint = SURL + '/rest/v1/images?user_id=eq.' + USER_ID + '&order=created_at.desc&limit=100&select=id,filename,original_name,url,size,mime_type,is_video,views,expires_at,password';
 
     var r = null;
-    var proxies = [
-      function() { return tryFetch(endpoint, { headers: HDRS, mode: 'cors', credentials: 'omit' }, 15000); },
-      function() { return tryFetch('https://corsproxy.io/?' + encodeURIComponent(endpoint), { headers: HDRS, mode: 'cors', credentials: 'omit' }, 15000); },
-      function() { return tryFetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(endpoint), { headers: HDRS, mode: 'cors', credentials: 'omit' }, 15000); }
-    ];
+    try {
+      r = await tryFetch(endpoint, { headers: HDRS, mode: 'cors', credentials: 'omit' }, 6000);
+      if (!r || !r.ok) r = null;
+    } catch(e) { r = null; }
 
-    for (var pi = 0; pi < proxies.length; pi++) {
+    if (!r) {
       try {
-        r = await proxies[pi]();
-        if (r && r.ok) break;
+        r = await tryFetch('https://corsproxy.io/?' + encodeURIComponent(endpoint), { headers: HDRS, mode: 'cors', credentials: 'omit' }, 6000);
+        if (!r || !r.ok) r = null;
       } catch(e) { r = null; }
     }
 
-    if (!r || !r.ok) {
+    if (!r) {
       var emptyIcons = { active: '📂', expired: '⏳', deleted: '🗑️' };
       var emptyTexts = { active: 'Нет активных файлов', expired: 'Нет истёкших файлов', deleted: 'Нет удалённых файлов' };
       wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">' + emptyIcons[currentTab] + '</div><span>' + emptyTexts[currentTab] + '</span></div>';
@@ -733,6 +730,7 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
     }
 
     var rows = await r.json().catch(function() { return []; });
+    _profileRows = rows;
     renderTab(rows);
   }
 
@@ -759,7 +757,7 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
       var ttlLeft = isExpired ? null : formatTTL(row.expires_at);
       var name = esc(row.original_name || row.filename);
       var size = formatSize(row.size);
-      var viewUrl = row.password_hash ? base + '?view=' + esc(row.id) : esc(row.url);
+      var viewUrl = row.password ? base + '?view=' + esc(row.id) : esc(row.url);
       var thumb = isVid ? '<div class="file-thumb-video">🎬</div>' : '<img class="file-thumb" src="' + esc(row.url) + '" loading="lazy" onerror="this.style.background=\'#1c1c1c\'">';
       var chips = [];
       if (size) chips.push('<span class="file-meta-chip">' + size + '</span>');
@@ -767,7 +765,7 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
       if (isDel) chips.push('<span class="file-meta-chip chip-red">удалено</span>');
       else if (isExpired) chips.push('<span class="file-meta-chip chip-red">истекло</span>');
       else if (ttlLeft) chips.push('<span class="file-meta-chip chip-warn">⏱ ' + ttlLeft + '</span>');
-      if (row.password_hash) chips.push('<span class="file-meta-chip chip-lock">🔒</span>');
+      if (row.password) chips.push('<span class="file-meta-chip chip-lock">🔒</span>');
       var actions = (isDel || isExpired) ? '' :
         '<div class="file-actions">' +
         '<button class="btn" onclick="copyUrl(\'' + viewUrl + '\', this)">копировать</button>' +
@@ -787,7 +785,11 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
     document.querySelectorAll('.profile-tab').forEach(function(b, i) {
       b.classList.toggle('active', ['active','expired','deleted'][i] === tab);
     });
-    loadProfile();
+    if (_profileRows) {
+      renderTab(_profileRows);
+    } else {
+      loadProfile();
+    }
   };
 
   window.copyUrl = function(url, btn) {
@@ -807,8 +809,8 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
 
   window.deleteFile = async function(id, filename, btn) {
     btn.disabled = true; btn.textContent = '...';
-    await tryFetch(SURL + '/storage/v1/object/' + BUCKET + '/' + filename, { method: 'DELETE', headers: HDRS, mode: 'cors', credentials: 'omit' }).catch(function() {});
-    await tryFetch(SURL + '/rest/v1/images?id=eq.' + id, { method: 'DELETE', headers: HDRS, mode: 'cors', credentials: 'omit' }).catch(function() {});
+    await tryFetch(SURL + '/storage/v1/object/' + BUCKET + '/' + filename, { method: 'DELETE', headers: HDRS, mode: 'cors', credentials: 'omit' }, 8000).catch(function() {});
+    await tryFetch(SURL + '/rest/v1/images?id=eq.' + id, { method: 'DELETE', headers: HDRS, mode: 'cors', credentials: 'omit' }, 8000).catch(function() {});
     deletedIds.push(id); saveDeleted();
     var item = document.getElementById('fitem-' + id);
     if (item) { item.style.transition = 'all 0.25s ease'; item.style.opacity = '0'; item.style.transform = 'translateX(16px)'; setTimeout(function() { item.remove(); }, 260); }
@@ -845,8 +847,22 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
     var row = await fetchImageRow(viewId);
     viewLoading.style.display = 'none';
 
-    if (!row) { viewPage.style.display = 'none'; showErrorPage('🔌', 'Не удалось загрузить', 'Проверь соединение и попробуй снова'); return; }
-    if (row.expires_at && new Date(row.expires_at) < new Date()) { viewPage.style.display = 'none'; showErrorPage('⏳', 'Ссылка истекла', 'Файл был автоматически удалён после истечения срока хранения'); return; }
+    if (!row) {
+      viewPage.style.display = 'none';
+      showErrorPage('🔌', 'Не удалось загрузить', 'Проверь соединение и попробуй снова');
+      return;
+    }
+
+    if (row.expires_at && new Date(row.expires_at) < new Date()) {
+      tryFetch(SURL + '/rest/v1/rpc/delete_expired_images', {
+        method: 'POST',
+        headers: makeHeaders({ 'Content-Type': 'application/json' }),
+        body: '{}', mode: 'cors', credentials: 'omit'
+      }, 5000).catch(function() {});
+      viewPage.style.display = 'none';
+      showErrorPage('⏳', 'Ссылка истекла', 'Файл был автоматически удалён после истечения срока хранения');
+      return;
+    }
 
     var isVid = row.is_video || (row.mime_type && row.mime_type.startsWith('video/'));
 
@@ -864,14 +880,14 @@ input[type=range]{width:100%;accent-color:#fff;cursor:pointer;height:4px}
 
     incrementViews(viewId);
 
-    if (!row.password_hash) {
+    if (!row.password) {
       if (isVid) { viewVideo.classList.add('unlocked'); viewVideo.controls = true; }
       else { viewImg.classList.add('unlocked'); }
       return;
     }
 
     viewOverlay.style.display = 'flex';
-    window._vh = row.password_hash;
+    window._vh = row.password;
     window._vv = isVid;
     window._va = 3;
     window._vl = false;
