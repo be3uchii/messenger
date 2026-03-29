@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>imgup</title>
+
+
+  <meta name="robots" content="noindex, nofollow, noarchive, noimageindex">
+  <meta property="og:title" content="imgup">
+  <meta property="og:description" content="">
+  <meta property="og:image" content="">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:image" content="">
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0e0e0e;
+      color: #ddd;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .wrap { width: 100%; max-width: 520px; }
+
+    h1 { font-size: 18px; font-weight: normal; color: #fff; margin-bottom: 24px; letter-spacing: 2px; }
+    h1 span { color: #3bf; }
+
+    #drop {
+      border: 1.5px dashed #333;
+      border-radius: 6px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    #drop:hover, #drop.over { border-color: #3bf; background: rgba(51,187,255,0.04); }
+    #drop p { font-size: 14px; color: #666; }
+    #drop p:first-child { color: #bbb; margin-bottom: 6px; font-size: 15px; }
+
+    #file { display: none; }
+
+    #bar-wrap {
+      height: 3px;
+      background: #1e1e1e;
+      border-radius: 2px;
+      margin-top: 14px;
+      overflow: hidden;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    #bar-wrap.visible { opacity: 1; }
+    #bar { height: 100%; width: 0%; background: #3bf; border-radius: 2px; transition: width 0.3s ease; }
+
+    #status { font-size: 12px; color: #555; margin-top: 10px; min-height: 18px; }
+    #status.err  { color: #f55; }
+    #status.warn { color: #fa0; }
+
+    .pw-section {
+      display: none;
+      margin-top: 12px;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pw-section.visible { display: flex; }
+    .pw-section label { font-size: 11px; color: #444; }
+    .pw-row { display: flex; align-items: center; gap: 8px; }
+    .pw-row input {
+      flex: 1;
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 4px;
+      color: #ccc;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 5px 10px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .pw-row input:focus { border-color: #3bf; }
+    .pw-row input::placeholder { color: #333; }
+    .pw-status { font-size: 11px; color: #3f9; min-height: 14px; }
+
+    #result {
+      display: none;
+      margin-top: 18px;
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+
+    #result .tag {
+      font-size: 10px;
+      color: #444;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    #result .row { display: flex; align-items: center; gap: 10px; }
+
+    #result a {
+      color: #3bf;
+      font-size: 13px;
+      text-decoration: none;
+      word-break: break-all;
+      flex: 1;
+    }
+    #result a:hover { text-decoration: underline; }
+
+    .btn {
+      background: none;
+      border: 1px solid #333;
+      color: #888;
+      padding: 5px 12px;
+      font-family: inherit;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .btn:hover { border-color: #3bf; color: #3bf; }
+    .btn.ok    { border-color: #3f9; color: #3f9; }
+
+    #via { font-size: 10px; color: #333; margin-top: 8px; }
+
+    .divider { height: 1px; background: #1e1e1e; margin: 12px 0; }
+
+    .meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    #views { font-size: 12px; color: #555; }
+    #views span { color: #3bf; }
+
+    #ttl { font-size: 11px; color: #444; margin-top: 4px; }
+    #ttl span { color: #f84; }
+
+    #qr-wrap { display: none; margin-top: 12px; justify-content: center; }
+    #qr-wrap.open { display: flex; }
+    #qr-canvas { background: #fff; padding: 8px; border-radius: 4px; }
+
+    /* ─── Страница просмотра ─── */
+    #view-page {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #080808;
+      z-index: 100;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #view-media-wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* общие стили для img и video */
+    .view-media {
+      max-width: 90vw;
+      max-height: 85vh;
+      object-fit: contain;
+      border-radius: 6px;
+      filter: blur(28px) brightness(0.35) saturate(0.3);
+      transform: scale(1.08);
+      transition: filter 0.6s cubic-bezier(.4,0,.2,1), transform 0.6s cubic-bezier(.4,0,.2,1);
+      user-select: none;
+      -webkit-user-drag: none;
+      pointer-events: none;
+      -webkit-touch-callout: none;
+      display: none;
+    }
+    .view-media.active { display: block; }
+    .view-media.unlocked {
+      filter: none;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    /* видео — дополнительная защита */
+    #view-video.unlocked {
+      pointer-events: auto;
+    }
+
+    #view-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(8,8,8,0.55);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.4s ease;
+    }
+
+    #view-form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 32px 28px;
+      background: rgba(14,14,14,0.92);
+      border: 1px solid #222;
+      border-radius: 10px;
+      backdrop-filter: blur(8px);
+    }
+
+    .view-logo { font-size: 20px; letter-spacing: 3px; color: #fff; }
+    .view-logo span { color: #3bf; }
+    .view-sub { font-size: 11px; color: #555; letter-spacing: 1px; }
+    .view-attempts { font-size: 10px; color: #444; letter-spacing: 1px; }
+    .view-attempts.warn { color: #fa0; }
+
+    #pw-view-input {
+      background: rgba(20,20,20,0.95);
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #eee;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      padding: 9px 16px;
+      outline: none;
+      width: 230px;
+      text-align: center;
+      transition: border-color 0.15s;
+    }
+    #pw-view-input:focus { border-color: #3bf; }
+    #pw-view-input.shake {
+      animation: shake 0.35s ease;
+      border-color: #f55;
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-6px); }
+      40%      { transform: translateX(6px); }
+      60%      { transform: translateX(-4px); }
+      80%      { transform: translateX(4px); }
+    }
+
+    #view-open-btn {
+      background: none;
+      border: 1px solid #3bf;
+      color: #3bf;
+      padding: 8px 32px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: background 0.15s;
+    }
+    #view-open-btn:hover { background: rgba(51,187,255,0.08); }
+    #view-open-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #pw-err { font-size: 11px; color: #f55; min-height: 14px; text-align: center; }
+
+    #view-loading {
+      position: absolute;
+      font-size: 12px;
+      color: #333;
+      letter-spacing: 1px;
+    }
+
+    /* тип файла badge */
+    .file-type-badge {
+      display: inline-block;
+      font-size: 10px;
+      color: #3bf;
+      border: 1px solid #1a3a4a;
+      border-radius: 3px;
+      padding: 1px 6px;
+      margin-left: 8px;
+      vertical-align: middle;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>img<span>up</span></h1>
+
+  <div id="drop">
+    <p>Перетащи или кликни</p>
+    <p>PNG · JPG · WEBP · GIF · MP4 — до 100MB</p>
+  </div>
+  <input type="file" id="file" accept="image/*,video/mp4">
+
+  <div id="bar-wrap"><div id="bar"></div></div>
+  <div id="status"></div>
+
+  <div id="result">
+    <div class="tag">ссылка <span id="file-badge" class="file-type-badge"></span></div>
+    <div class="row">
+      <a id="link" href="#" target="_blank"></a>
+      <button class="btn" id="copy" onclick="copyLink()">копировать</button>
+    </div>
+    <div id="via"></div>
+    <div class="divider"></div>
+    <div class="meta-row">
+      <div>
+        <div id="views">просмотров: <span>0</span></div>
+        <div id="ttl">истекает через: <span>—</span></div>
+      </div>
+      <button class="btn" id="qr-btn" onclick="toggleQR()">QR-код</button>
+    </div>
+    <div id="qr-wrap">
+      <div id="qr-canvas"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="pw-section" id="pw-section">
+      <label>🔒 пароль на файл</label>
+      <div class="pw-row">
+        <input type="text" id="pw" placeholder="пароль — или пусто чтобы снять" autocomplete="off">
+        <button class="btn" id="pw-apply-btn" onclick="applyPassword()">применить</button>
+      </div>
+      <div class="pw-status" id="pw-apply-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Страница просмотра -->
+<div id="view-page">
+  <div id="view-media-wrap">
+    <img
+      id="view-img"
+      class="view-media"
+      src=""
+      alt=""
+      draggable="false"
+      oncontextmenu="return false"
+      ondragstart="return false"
+    >
+    <video
+      id="view-video"
+      class="view-media"
+      playsinline
+      oncontextmenu="return false"
+      ondragstart="return false"
+      controlslist="nodownload nofullscreen noremoteplayback"
+      disablePictureInPicture
+    ></video>
+
+    <div id="view-overlay">
+      <div id="view-form">
+        <div class="view-logo">img<span>up</span></div>
+        <div class="view-sub">защищено паролем</div>
+        <input id="pw-view-input" type="password" placeholder="введи пароль" autocomplete="off" spellcheck="false">
+        <div class="view-attempts" id="view-attempts">осталось попыток: 3</div>
+        <button id="view-open-btn" onclick="checkViewPassword()">открыть</button>
+        <div id="pw-err"></div>
+      </div>
+    </div>
+
+    <div id="view-loading">загружаю...</div>
+  </div>
+</div>
+
+<script>
+  const SURL      = 'https://yktcwkjwvsqxjhugcank.supabase.co';
+  const SKEY      = 'sb_publishable_1vsWjerwZq95L0n9czgXsA_4BEuxYmB';
+  const BUCKET    = 'images';
+  const IMGBB_KEY = 'a8a01cd8c5e7ea81f94ea85da3c7e494';
+
+  const CORS_PROXIES = [
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    u => `https://proxy.cors.sh/${u}`,
+    u => `https://cors-anywhere.herokuapp.com/${u}`,
+  ];
+
+  const MIME_MAP = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+    gif: 'image/gif',  webp: 'image/webp', svg: 'image/svg+xml',
+    bmp: 'image/bmp',  tiff: 'image/tiff', mp4: 'video/mp4'
+  };
+
+  const drop      = document.getElementById('drop');
+  const fileInput = document.getElementById('file');
+  const barWrap   = document.getElementById('bar-wrap');
+  const bar       = document.getElementById('bar');
+  const status    = document.getElementById('status');
+  const result    = document.getElementById('result');
+  const link      = document.getElementById('link');
+  const via       = document.getElementById('via');
+
+  let qrGenerated    = false;
+  let currentImageId  = null;
+  let currentImageUrl = null;
+  let currentIsVideo  = false;
+  let ttlInterval     = null;
+
+  const dbCache  = new Map();
+  const imgCache = new Map();
+
+  drop.addEventListener('click', () => fileInput.click());
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', e => { if (!drop.contains(e.relatedTarget)) drop.classList.remove('over'); });
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if (f) upload(f);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) upload(fileInput.files[0]);
+    fileInput.value = '';
+  });
+
+  function slug() {
+    return Array.from({ length: 8 }, () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]).join('');
+  }
+
+  function extFromFile(f) {
+    const ext = f.name.includes('.') ? f.name.split('.').pop().toLowerCase() : '';
+    return ext || 'jpg';
+  }
+
+  function mimeFromFile(f) {
+    if (f.type && (f.type.startsWith('image/') || f.type.startsWith('video/'))) return f.type;
+    return MIME_MAP[extFromFile(f)] || 'application/octet-stream';
+  }
+
+  function isVideo(f) {
+    const mime = mimeFromFile(f);
+    const ext  = extFromFile(f);
+    return mime.startsWith('video/') || ext === 'mp4';
+  }
+
+  function setBar(pct) { bar.style.width = pct + '%'; }
+
+  function setStatus(msg, cls = '') {
+    status.textContent = msg;
+    status.className = cls;
+  }
+
+  function toBase64(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload  = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function tryFetch(url, opts, ms = 12000) {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const r = await fetch(url, { ...opts, signal: ctrl.signal });
+      clearTimeout(timer);
+      return r;
+    } catch (e) {
+      clearTimeout(timer);
+      throw e;
+    }
+  }
+
+  async function uploadToSupabase(file) {
+    const ext  = extFromFile(file);
+    const mime = mimeFromFile(file);
+    const name = slug() + '.' + ext;
+    const endpoint  = `${SURL}/storage/v1/object/${BUCKET}/${name}`;
+    const publicUrl = `${SURL}/storage/v1/object/public/${BUCKET}/${name}`;
+
+    const r = await tryFetch(endpoint, {
+      method: 'POST',
+      headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': mime, 'x-upsert': 'true' },
+      body: file, mode: 'cors', credentials: 'omit'
+    }, 30000);
+    if (!r.ok) throw new Error('supabase: ' + r.status);
+    return { url: publicUrl, via: 'supabase' };
+  }
+
+  async function uploadToSupabaseViaProxy(file, proxyFn) {
+    const ext  = extFromFile(file);
+    const mime = mimeFromFile(file);
+    const name = slug() + '.' + ext;
+    const publicUrl = `${SURL}/storage/v1/object/public/${BUCKET}/${name}`;
+
+    const r = await tryFetch(proxyFn(`${SURL}/storage/v1/object/${BUCKET}/${name}`), {
+      method: 'POST',
+      headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': mime, 'x-upsert': 'true', 'x-requested-with': 'XMLHttpRequest' },
+      body: file, mode: 'cors', credentials: 'omit'
+    }, 30000);
+    if (!r.ok) throw new Error('proxy: ' + r.status);
+    return { url: publicUrl, via: 'proxy' };
+  }
+
+  async function uploadToImgBB(file) {
+    if (isVideo(file)) throw new Error('imgbb: видео не поддерживается');
+    const b64 = await toBase64(file);
+    const fd  = new FormData();
+    fd.append('key', IMGBB_KEY);
+    fd.append('image', b64);
+    fd.append('name', slug());
+    const r = await tryFetch('https://api.imgbb.com/1/upload', {
+      method: 'POST', body: fd, mode: 'cors', credentials: 'omit'
+    }, 20000);
+    if (!r.ok) throw new Error('imgbb: ' + r.status);
+    const json = await r.json();
+    if (!json.success) throw new Error('imgbb: failed');
+    return { url: json.data.url, via: 'imgbb' };
+  }
+
+  async function uploadWithXHR(file) {
+    const ext  = extFromFile(file);
+    const mime = mimeFromFile(file);
+    const name = slug() + '.' + ext;
+    const endpoint  = `${SURL}/storage/v1/object/${BUCKET}/${name}`;
+    const publicUrl = `${SURL}/storage/v1/object/public/${BUCKET}/${name}`;
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', endpoint);
+      xhr.setRequestHeader('apikey', SKEY);
+      xhr.setRequestHeader('Authorization', 'Bearer ' + SKEY);
+      xhr.setRequestHeader('Content-Type', mime);
+      xhr.setRequestHeader('x-upsert', 'true');
+      xhr.timeout = 30000;
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) setBar(10 + (e.loaded / e.total) * 70);
+      };
+      xhr.onload    = () => xhr.status >= 200 && xhr.status < 300 ? resolve({ url: publicUrl, via: 'supabase-xhr' }) : reject(new Error('xhr: ' + xhr.status));
+      xhr.onerror   = () => reject(new Error('xhr network error'));
+      xhr.ontimeout = () => reject(new Error('xhr timeout'));
+      xhr.send(file);
+    });
+  }
+
+  async function saveImageMeta(imageUrl, fileName, file, videoFlag) {
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const r = await tryFetch(`${SURL}/rest/v1/images`, {
+      method: 'POST',
+      headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify({
+        filename: fileName, original_name: file.name, url: imageUrl,
+        size: file.size, mime_type: mimeFromFile(file),
+        views: 0, expires_at: expiresAt, is_video: videoFlag
+      }),
+      mode: 'cors', credentials: 'omit'
+    }).catch(() => null);
+
+    if (r && r.ok) {
+      const rows = await r.json().catch(() => []);
+      const row  = rows[0];
+      if (row?.expires_at) startTTLTimer(new Date(row.expires_at));
+      return row?.id || null;
+    }
+    return null;
+  }
+
+  function startTTLTimer(expiresAt) {
+    if (ttlInterval) clearInterval(ttlInterval);
+    const el   = document.querySelector('#ttl span');
+    const tick = () => {
+      const diff = expiresAt - Date.now();
+      if (diff <= 0) { el.textContent = 'истекло'; clearInterval(ttlInterval); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      el.textContent = `${h}ч ${m}м ${s}с`;
+    };
+    tick();
+    ttlInterval = setInterval(tick, 1000);
+  }
+
+  async function incrementViews(id) {
+    await tryFetch(`${SURL}/rest/v1/rpc/increment_views`, {
+      method: 'POST',
+      headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_id: id }), mode: 'cors', credentials: 'omit'
+    }).catch(() => {});
+  }
+
+  async function getViews(id) {
+    const r = await tryFetch(`${SURL}/rest/v1/images?id=eq.${id}&select=views`, {
+      headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY },
+      mode: 'cors', credentials: 'omit'
+    }).catch(() => null);
+    if (!r || !r.ok) return 0;
+    const rows = await r.json().catch(() => []);
+    return rows[0]?.views ?? 0;
+  }
+
+  async function fetchImageRow(viewId) {
+    if (dbCache.has(viewId)) return dbCache.get(viewId);
+
+    const hdrs     = { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY };
+    const endpoint = `${SURL}/rest/v1/images?id=eq.${viewId}&select=url,password,views,expires_at,is_video,mime_type`;
+
+    const attempts = [
+      () => tryFetch(endpoint, { headers: hdrs, mode: 'cors', credentials: 'omit' }),
+      () => tryFetch(`https://corsproxy.io/?${encodeURIComponent(endpoint)}`, { headers: hdrs, mode: 'cors', credentials: 'omit' }),
+      () => tryFetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(endpoint)}`, { headers: hdrs, mode: 'cors', credentials: 'omit' }),
+    ];
+
+    for (const attempt of attempts) {
+      try {
+        const r = await attempt();
+        if (!r || !r.ok) continue;
+        const rows = await r.json().catch(() => []);
+        if (rows.length) {
+          dbCache.set(viewId, rows[0]);
+          return rows[0];
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  function preloadImage(url) {
+    if (imgCache.has(url)) return imgCache.get(url);
+    const p = new Promise(resolve => {
+      const img = new Image();
+      img.onload  = () => resolve(url);
+      img.onerror = () => resolve(url);
+      img.src = url;
+    });
+    imgCache.set(url, p);
+    return p;
+  }
+
+  async function upload(file) {
+    const videoFlag = isVideo(file);
+
+    if (file.size > 100 * 1024 * 1024) {
+      setStatus('файл слишком большой — максимум 100MB', 'err');
+      return;
+    }
+
+    result.style.display = 'none';
+    qrGenerated = false;
+    currentImageId  = null;
+    currentImageUrl = null;
+    currentIsVideo  = videoFlag;
+    document.getElementById('qr-canvas').innerHTML = '';
+    document.getElementById('qr-wrap').classList.remove('open');
+    document.getElementById('qr-btn').textContent = 'QR-код';
+    document.getElementById('pw').value = '';
+    document.getElementById('pw-apply-status').textContent = '';
+    document.getElementById('pw-section').classList.remove('visible');
+    via.textContent = '';
+    barWrap.classList.add('visible');
+    setBar(10);
+    setStatus('загружаю...');
+
+    const strategies = [
+      { name: 'прямое подключение', fn: () => uploadToSupabase(file) },
+      { name: 'XHR fallback',       fn: () => uploadWithXHR(file) },
+      { name: 'прокси 1',           fn: () => uploadToSupabaseViaProxy(file, CORS_PROXIES[0]) },
+      { name: 'прокси 2',           fn: () => uploadToSupabaseViaProxy(file, CORS_PROXIES[1]) },
+      { name: 'прокси 3',           fn: () => uploadToSupabaseViaProxy(file, CORS_PROXIES[2]) },
+      { name: 'прокси 4',           fn: () => uploadToSupabaseViaProxy(file, CORS_PROXIES[3]) },
+      ...(!videoFlag ? [{ name: 'imgbb резерв', fn: () => uploadToImgBB(file) }] : []),
+    ];
+
+    const step  = 70 / strategies.length;
+    let lastErr = '';
+
+    for (let i = 0; i < strategies.length; i++) {
+      const s = strategies[i];
+      setStatus(s.name + '...');
+      if (i > 0) setBar(10 + step * (i + 1));
+      try {
+        const res = await s.fn();
+
+        setBar(90);
+        setStatus('сохраняю метаданные...');
+
+        const fileName = res.url.split('/').pop().split('?')[0];
+        const [id] = await Promise.all([
+          saveImageMeta(res.url, fileName, file, videoFlag),
+          videoFlag ? Promise.resolve() : preloadImage(res.url)
+        ]);
+        currentImageId  = id;
+        currentImageUrl = res.url;
+
+        setBar(100);
+        setStatus(i > 0 ? `загружено через: ${s.name}` : '', i > 0 ? 'warn' : '');
+
+        document.getElementById('file-badge').textContent = videoFlag ? 'MP4' : 'IMG';
+        link.href        = res.url;
+        link.textContent = res.url;
+        via.textContent  = res.via !== 'supabase' ? `via ${res.via}` : '';
+
+        document.querySelector('#views span').textContent = '0';
+        result.style.display = 'block';
+        if (id) document.getElementById('pw-section').classList.add('visible');
+
+        setTimeout(() => { barWrap.classList.remove('visible'); setBar(0); }, 500);
+        return;
+      } catch (e) {
+        lastErr = e.message;
+      }
+    }
+
+    barWrap.classList.remove('visible');
+    setBar(0);
+    setStatus('все способы не сработали: ' + lastErr, 'err');
+  }
+
+  function resetQR() {
+    qrGenerated = false;
+    document.getElementById('qr-canvas').innerHTML = '';
+    document.getElementById('qr-wrap').classList.remove('open');
+    document.getElementById('qr-btn').textContent = 'QR-код';
+  }
+
+  function setLink(url) {
+    link.href        = url;
+    link.textContent = url;
+    resetQR();
+  }
+
+  async function applyPassword() {
+    if (!currentImageId) return;
+    const pw  = document.getElementById('pw').value.trim();
+    const btn = document.getElementById('pw-apply-btn');
+    const st  = document.getElementById('pw-apply-status');
+
+    btn.disabled    = true;
+    btn.textContent = '...';
+    st.style.color  = '#555';
+    st.textContent  = 'применяю...';
+
+    const r = await tryFetch(`${SURL}/rest/v1/images?id=eq.${currentImageId}`, {
+      method: 'PATCH',
+      headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ password: pw || null }),
+      mode: 'cors', credentials: 'omit'
+    }).catch(() => null);
+
+    btn.disabled    = false;
+    btn.textContent = 'применить';
+
+    if (!r || !r.ok) {
+      st.style.color = '#f55';
+      st.textContent = 'ошибка, попробуй ещё раз';
+      return;
+    }
+
+    if (pw) {
+      const base    = (location.origin + location.pathname).replace(/\/+$/, '');
+      const viewUrl = base + '?view=' + currentImageId;
+      setLink(viewUrl);
+      st.style.color = '#3f9';
+      st.textContent = '🔒 защита включена';
+    } else {
+      setLink(currentImageUrl);
+      st.style.color = '#888';
+      st.textContent = 'защита снята';
+    }
+
+    setTimeout(() => { st.textContent = ''; }, 3000);
+  }
+
+  function toggleQR() {
+    const wrap   = document.getElementById('qr-wrap');
+    const btn    = document.getElementById('qr-btn');
+    const isOpen = wrap.classList.contains('open');
+
+    if (isOpen) {
+      wrap.classList.remove('open');
+      btn.textContent = 'QR-код';
+      return;
+    }
+
+    if (!qrGenerated) {
+      new QRCode(document.getElementById('qr-canvas'), {
+        text: link.href, width: 160, height: 160,
+        colorDark: '#000', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M
+      });
+      qrGenerated = true;
+    }
+
+    wrap.classList.add('open');
+    btn.textContent = 'скрыть QR';
+  }
+
+  async function refreshViews() {
+    if (!currentImageId) return;
+    const v = await getViews(currentImageId);
+    document.querySelector('#views span').textContent = v;
+  }
+
+  function copyLink() {
+    const btn = document.getElementById('copy');
+    const url = link.href;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(() => flashCopy(btn)).catch(() => fallbackCopy(url, btn));
+    } else {
+      fallbackCopy(url, btn);
+    }
+    refreshViews();
+  }
+
+  function fallbackCopy(text, btn) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+    try { document.execCommand('copy'); flashCopy(btn); }
+    catch { setStatus('скопируй вручную', 'err'); }
+    document.body.removeChild(ta);
+  }
+
+  function flashCopy(btn) {
+    btn.textContent = 'скопировано';
+    btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = 'копировать'; btn.classList.remove('ok'); }, 1800);
+  }
+
+  setInterval(() => { if (result.style.display !== 'none') refreshViews(); }, 10000);
+
+  // ─── Просмотр по ?view=ID ───
+  (async () => {
+    const params = new URLSearchParams(location.search);
+    const viewId = params.get('view');
+    if (!viewId) return;
+
+    const viewPage    = document.getElementById('view-page');
+    const viewOverlay = document.getElementById('view-overlay');
+    const viewLoading = document.getElementById('view-loading');
+    const viewImg     = document.getElementById('view-img');
+    const viewVideo   = document.getElementById('view-video');
+
+    document.querySelector('.wrap').style.display = 'none';
+    viewPage.style.display = 'flex';
+    viewOverlay.style.display = 'none';
+
+    const row = await fetchImageRow(viewId);
+    viewLoading.style.display = 'none';
+
+    if (!row) {
+      viewPage.innerHTML = '<div style="font-family:\'Courier New\',monospace;color:#f55;font-size:13px;letter-spacing:1px;">не удалось загрузить — проверь соединение</div>';
+      return;
+    }
+
+    if (row.expires_at && new Date(row.expires_at) < new Date()) {
+      viewPage.innerHTML = '<div style="font-family:\'Courier New\',monospace;color:#f55;font-size:13px;letter-spacing:1px;">⏳ ссылка истекла — файл удалён</div>';
+      return;
+    }
+
+    const isVid = row.is_video || (row.mime_type && row.mime_type.startsWith('video/'));
+
+    if (isVid) {
+      viewVideo.classList.add('active');
+      viewVideo.src = row.url;
+      viewVideo.load();
+    } else {
+      await preloadImage(row.url);
+      viewImg.src = row.url;
+      viewImg.classList.add('active');
+    }
+
+    incrementViews(viewId);
+
+    if (!row.password) {
+      if (isVid) {
+        viewVideo.classList.add('unlocked');
+        viewVideo.controls = true;
+      } else {
+        viewImg.classList.add('unlocked');
+      }
+      return;
+    }
+
+    viewOverlay.style.display = 'flex';
+    window._viewRow      = row;
+    window._viewIsVideo  = isVid;
+    window._viewAttempts = 3;
+    document.getElementById('pw-view-input').focus();
+  })();
+
+  function checkViewPassword() {
+    const input      = document.getElementById('pw-view-input');
+    const err        = document.getElementById('pw-err');
+    const btn        = document.getElementById('view-open-btn');
+    const attemptsEl = document.getElementById('view-attempts');
+    const val        = input.value.trim();
+
+    if (!val || btn.disabled) return;
+
+    if (val === window._viewRow?.password) {
+      const overlay  = document.getElementById('view-overlay');
+      const viewImg  = document.getElementById('view-img');
+      const viewVideo = document.getElementById('view-video');
+
+      overlay.style.opacity    = '0';
+      overlay.style.transition = 'opacity 0.4s ease';
+      setTimeout(() => { overlay.style.display = 'none'; }, 400);
+
+      if (window._viewIsVideo) {
+        viewVideo.classList.add('unlocked');
+        viewVideo.controls = true;
+        viewVideo.play().catch(() => {});
+      } else {
+        viewImg.classList.add('unlocked');
+      }
+      return;
+    }
+
+    window._viewAttempts--;
+    input.value = '';
+    input.classList.remove('shake');
+    void input.offsetWidth;
+    input.classList.add('shake');
+    setTimeout(() => input.classList.remove('shake'), 400);
+
+    if (window._viewAttempts <= 0) {
+      err.textContent = 'слишком много попыток — подожди 30 сек';
+      btn.disabled    = true;
+      input.disabled  = true;
+      let sec = 30;
+      attemptsEl.className = 'view-attempts warn';
+      const t = setInterval(() => {
+        sec--;
+        attemptsEl.textContent = `разблокировка через: ${sec} сек`;
+        if (sec <= 0) {
+          clearInterval(t);
+          window._viewAttempts = 3;
+          btn.disabled   = false;
+          input.disabled = false;
+          input.focus();
+          err.textContent = '';
+          attemptsEl.className   = 'view-attempts';
+          attemptsEl.textContent = 'осталось попыток: 3';
+        }
+      }, 1000);
+      return;
+    }
+
+    err.textContent = 'неверный пароль';
+    attemptsEl.className   = window._viewAttempts === 1 ? 'view-attempts warn' : 'view-attempts';
+    attemptsEl.textContent = `осталось попыток: ${window._viewAttempts}`;
+    setTimeout(() => { err.textContent = ''; }, 1800);
+  }
+
+  document.getElementById('pw-view-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkViewPassword();
+  });
+
+  document.getElementById('view-page').addEventListener('contextmenu', e => e.preventDefault());
+</script>
+
+</body>
+</html>
