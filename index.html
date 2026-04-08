@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ShooterOnline</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { background: #0a0a0f; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; width: 100vw; height: 100vh; }
+
+  #app { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+
+  .screen { display: none; width: 100%; height: 100%; align-items: center; justify-content: center; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* AUTH */
+  .auth-box {
+    background: linear-gradient(135deg, #12121f, #1a1a2e);
+    border: 1px solid #2a2a4a;
+    border-radius: 20px;
+    padding: 40px 32px;
+    width: 90%;
+    max-width: 360px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .auth-box h1 { font-size: 28px; text-align: center; margin-bottom: 8px; background: linear-gradient(90deg, #e74c3c, #3498db); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .auth-box p.sub { text-align: center; color: #666; font-size: 13px; margin-bottom: 28px; }
+  .tabs { display: flex; background: #0d0d1a; border-radius: 10px; padding: 4px; margin-bottom: 24px; }
+  .tab { flex: 1; padding: 10px; text-align: center; border-radius: 8px; cursor: pointer; font-size: 14px; color: #666; transition: all 0.2s; }
+  .tab.active { background: #2a2a4a; color: #fff; }
+  .input-group { margin-bottom: 16px; }
+  .input-group label { font-size: 12px; color: #888; margin-bottom: 6px; display: block; }
+  .input-group input {
+    width: 100%; padding: 13px 16px; background: #0d0d1a; border: 1px solid #2a2a4a;
+    border-radius: 10px; color: #fff; font-size: 15px; outline: none; transition: border 0.2s;
+  }
+  .input-group input:focus { border-color: #3498db; }
+  .btn-main {
+    width: 100%; padding: 14px; border: none; border-radius: 10px;
+    background: linear-gradient(90deg, #e74c3c, #c0392b);
+    color: #fff; font-size: 16px; font-weight: 600; cursor: pointer;
+    transition: opacity 0.2s; margin-top: 4px;
+  }
+  .btn-main:active { opacity: 0.8; }
+  .error-msg { color: #e74c3c; font-size: 13px; text-align: center; margin-top: 12px; min-height: 18px; }
+
+  /* LOBBY */
+  #lobby-screen { background: #0a0a0f; flex-direction: column; padding: 0; }
+  .lobby-header {
+    width: 100%; padding: 16px 20px; background: #12121f;
+    border-bottom: 1px solid #1e1e3a; display: flex; align-items: center; justify-content: space-between;
+  }
+  .lobby-header .user-info { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #e74c3c, #c0392b); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
+  .username-text { font-weight: 600; font-size: 15px; }
+  .stats-mini { font-size: 11px; color: #666; }
+  .btn-logout { padding: 8px 14px; background: #1e1e3a; border: none; border-radius: 8px; color: #888; font-size: 13px; cursor: pointer; }
+
+  .lobby-content { flex: 1; overflow-y: auto; padding: 16px; width: 100%; }
+  .section-title { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; margin-top: 8px; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+  .stat-card { background: #12121f; border: 1px solid #1e1e3a; border-radius: 12px; padding: 12px 8px; text-align: center; }
+  .stat-card .val { font-size: 22px; font-weight: 700; color: #fff; }
+  .stat-card .lbl { font-size: 10px; color: #666; margin-top: 2px; }
+
+  .players-list { display: flex; flex-direction: column; gap: 8px; }
+  .player-card {
+    background: #12121f; border: 1px solid #1e1e3a; border-radius: 12px;
+    padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .player-card .pinfo { display: flex; align-items: center; gap: 10px; }
+  .player-dot { width: 10px; height: 10px; border-radius: 50%; background: #2ecc71; }
+  .player-name { font-size: 15px; font-weight: 500; }
+
+  .invite-btns { display: flex; gap: 6px; }
+  .btn-invite-1v1 {
+    padding: 8px 12px; border: none; border-radius: 8px;
+    background: linear-gradient(90deg, #e74c3c, #c0392b);
+    color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .btn-invite-2v2 {
+    padding: 8px 12px; border: none; border-radius: 8px;
+    background: linear-gradient(90deg, #3498db, #2980b9);
+    color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .no-players { text-align: center; color: #444; padding: 30px; font-size: 14px; }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 999;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: #12121f; border: 1px solid #2a2a4a; border-radius: 20px;
+    padding: 32px 24px; width: 85%; max-width: 320px; text-align: center;
+  }
+  .modal-box h3 { font-size: 20px; margin-bottom: 8px; }
+  .modal-box p { color: #888; font-size: 14px; margin-bottom: 24px; }
+  .modal-btns { display: flex; gap: 10px; }
+  .btn-accept { flex: 1; padding: 13px; border: none; border-radius: 10px; background: #2ecc71; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .btn-decline { flex: 1; padding: 13px; border: none; border-radius: 10px; background: #e74c3c; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+
+  .toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: #2a2a4a; color: #fff; padding: 12px 20px; border-radius: 10px;
+    font-size: 14px; z-index: 9999; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  /* GAME */
+  #game-screen { position: relative; background: #000; }
+  #gameCanvas { display: block; touch-action: none; }
+
+  .game-ui {
+    position: absolute; top: 0; left: 0; width: 100%; pointer-events: none;
+  }
+
+  .hud-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 12px 16px; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  }
+
+  .team-score {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .score-box {
+    background: rgba(0,0,0,0.6); border-radius: 10px; padding: 8px 14px; text-align: center;
+  }
+  .score-box .team-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .score-box .team-val { font-size: 24px; font-weight: 700; }
+  .score-box.red .team-label { color: #e74c3c; }
+  .score-box.red .team-val { color: #e74c3c; }
+  .score-box.blue .team-label { color: #3498db; }
+  .score-box.blue .team-val { color: #3498db; }
+  .score-sep { font-size: 20px; color: #666; }
+
+  .round-info { background: rgba(0,0,0,0.6); border-radius: 10px; padding: 8px 14px; text-align: center; }
+  .round-info .r-label { font-size: 10px; color: #888; text-transform: uppercase; }
+  .round-info .r-val { font-size: 16px; font-weight: 600; }
+
+  .hp-bar-container {
+    position: absolute; bottom: 130px; left: 16px;
+    background: rgba(0,0,0,0.6); border-radius: 10px; padding: 8px 12px; min-width: 120px;
+  }
+  .hp-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .hp-bar { width: 100px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+  .hp-fill { height: 100%; background: linear-gradient(90deg, #e74c3c, #2ecc71); border-radius: 4px; transition: width 0.2s; }
+
+  .btn-leave-game {
+    position: absolute; top: 12px; right: 16px;
+    background: rgba(0,0,0,0.6); border: 1px solid #333; border-radius: 8px;
+    color: #888; font-size: 12px; padding: 8px 12px; cursor: pointer; pointer-events: all;
+    z-index: 10;
+  }
+
+  .round-end-banner {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.9); border-radius: 16px; padding: 24px 40px;
+    text-align: center; display: none; z-index: 100;
+  }
+  .round-end-banner.show { display: block; }
+  .round-end-banner h2 { font-size: 28px; margin-bottom: 6px; }
+  .round-end-banner p { color: #888; font-size: 14px; }
+
+  .dead-banner {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(200,0,0,0.2); border: 1px solid rgba(200,0,0,0.4); border-radius: 16px;
+    padding: 16px 32px; text-align: center; display: none; z-index: 99;
+  }
+  .dead-banner.show { display: block; }
+  .dead-banner h3 { font-size: 22px; color: #e74c3c; }
+  .dead-banner p { color: #888; font-size: 12px; margin-top: 4px; }
+
+  /* JOYSTICK */
+  .joystick-zone {
+    position: absolute; bottom: 20px; border-radius: 50%;
+    pointer-events: all;
+  }
+  #joystick-move { left: 20px; width: 110px; height: 110px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); }
+  #joystick-aim { right: 20px; width: 110px; height: 110px; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); }
+
+  .joystick-knob {
+    position: absolute; width: 44px; height: 44px; border-radius: 50%;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  #knob-move { background: rgba(255,255,255,0.3); }
+  #knob-aim { background: rgba(231,76,60,0.6); }
+
+  .btn-shoot {
+    position: absolute; bottom: 30px; right: 140px;
+    width: 64px; height: 64px; border-radius: 50%;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    border: none; color: #fff; font-size: 24px;
+    pointer-events: all; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(231,76,60,0.4);
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  @media (orientation: portrait) {
+    .rotate-msg {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #0a0a0f; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 99999; text-align: center; padding: 20px;
+    }
+    .rotate-msg.hidden { display: none; }
+    .rotate-icon { font-size: 60px; margin-bottom: 20px; animation: rotate-anim 2s ease-in-out infinite; }
+    @keyframes rotate-anim { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
+    .rotate-msg h2 { font-size: 22px; margin-bottom: 10px; }
+    .rotate-msg p { color: #666; font-size: 14px; }
+  }
+  @media (orientation: landscape) {
+    .rotate-msg { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="rotate-msg" id="rotateMsg">
+  <div class="rotate-icon">📱</div>
+  <h2>Поверни телефон</h2>
+  <p>Игра работает только в горизонтальном режиме</p>
+</div>
+
+<div id="app">
+
+  <!-- AUTH SCREEN -->
+  <div class="screen active" id="auth-screen">
+    <div class="auth-box">
+      <h1>🔫 ShooterOnline</h1>
+      <p class="sub">Онлайн 2D шутер</p>
+      <div class="tabs">
+        <div class="tab active" id="tab-login" onclick="switchTab('login')">Войти</div>
+        <div class="tab" id="tab-register" onclick="switchTab('register')">Регистрация</div>
+      </div>
+      <div class="input-group">
+        <label>Никнейм</label>
+        <input type="text" id="input-username" placeholder="Введи ник" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <label>Пароль</label>
+        <input type="password" id="input-password" placeholder="Введи пароль">
+      </div>
+      <button class="btn-main" id="auth-btn" onclick="handleAuth()">Войти</button>
+      <div class="error-msg" id="auth-error"></div>
+    </div>
+  </div>
+
+  <!-- LOBBY SCREEN -->
+  <div class="screen" id="lobby-screen">
+    <div class="lobby-header">
+      <div class="user-info">
+        <div class="avatar" id="lobby-avatar">?</div>
+        <div>
+          <div class="username-text" id="lobby-username">-</div>
+          <div class="stats-mini" id="lobby-stats-mini">K:0 D:0 W:0 L:0</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">Выйти</button>
+    </div>
+    <div class="lobby-content">
+      <div class="section-title">Моя статистика</div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="val" id="stat-kills">0</div><div class="lbl">Убийства</div></div>
+        <div class="stat-card"><div class="val" id="stat-deaths">0</div><div class="lbl">Смерти</div></div>
+        <div class="stat-card"><div class="val" id="stat-wins">0</div><div class="lbl">Победы</div></div>
+        <div class="stat-card"><div class="val" id="stat-losses">0</div><div class="lbl">Поражения</div></div>
+      </div>
+      <div class="section-title">Онлайн игроки</div>
+      <div class="players-list" id="players-list">
+        <div class="no-players">Никого нет онлайн</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="screen" id="game-screen">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="game-ui">
+      <div class="hud-top">
+        <div class="team-score">
+          <div class="score-box red">
+            <div class="team-label">Красные</div>
+            <div class="team-val" id="score-red">0</div>
+          </div>
+          <div class="score-sep">:</div>
+          <div class="score-box blue">
+            <div class="team-label">Синие</div>
+            <div class="team-val" id="score-blue">0</div>
+          </div>
+        </div>
+        <div class="round-info">
+          <div class="r-label">Раунд</div>
+          <div class="r-val" id="round-num">1</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-leave-game" onclick="leaveGame()">✕ Выйти</button>
+
+    <div class="hp-bar-container">
+      <div class="hp-label">HP</div>
+      <div class="hp-bar"><div class="hp-fill" id="hp-fill" style="width:100%"></div></div>
+    </div>
+
+    <div class="round-end-banner" id="round-end-banner">
+      <h2 id="round-end-text">Раунд окончен!</h2>
+      <p id="round-end-sub">Следующий раунд начинается...</p>
+    </div>
+
+    <div class="dead-banner" id="dead-banner">
+      <h3>☠️ Ты убит</h3>
+      <p>Жди следующего раунда</p>
+    </div>
+
+    <!-- Joysticks -->
+    <div class="joystick-zone" id="joystick-move">
+      <div class="joystick-knob" id="knob-move"></div>
+    </div>
+    <div class="joystick-zone" id="joystick-aim">
+      <div class="joystick-knob" id="knob-aim"></div>
+    </div>
+    <button class="btn-shoot" id="btn-shoot" ontouchstart="shootBullet()">🔫</button>
+  </div>
+
+</div>
+
+<!-- INVITE MODAL -->
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal-box">
+    <h3>⚔️ Приглашение</h3>
+    <p id="invite-text">Игрок приглашает тебя в игру</p>
+    <div class="modal-btns">
+      <button class="btn-accept" onclick="respondInvite(true)">Принять</button>
+      <button class="btn-decline" onclick="respondInvite(false)">Отклонить</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const WS_URL = "ws://85.215.220.246:10227";
+
+let ws = null;
+let currentUser = null;
+let myTeam = null;
+let myLobbyId = null;
+let gameState = null;
+let myStats = { kills: 0, deaths: 0, wins: 0, losses: 0 };
+let currentTab = "login";
+let pendingInvite = null;
+let isAlive = true;
+let lastShootTime = 0;
+
+// Canvas
+let canvas, ctx;
+let canvasW = 0, canvasH = 0;
+const MAP_W = 800, MAP_H = 500;
+let scaleX = 1, scaleY = 1;
+
+// Map walls (same as server)
+const MAP_WALLS = [
+  [0, 0, 800, 10],
+  [0, 490, 800, 10],
+  [0, 0, 10, 500],
+  [790, 0, 10, 500],
+  [200, 150, 20, 120],
+  [580, 150, 20, 120],
+  [200, 230, 20, 120],
+  [580, 230, 20, 120],
+  [350, 100, 100, 20],
+  [350, 380, 100, 20],
+];
+
+// Joystick state
+let moveJoy = { active: false, startX: 0, startY: 0, dx: 0, dy: 0, id: -1 };
+let aimJoy = { active: false, startX: 0, startY: 0, dx: 0, dy: 0, id: -1 };
+
+// Player position (local prediction)
+let myX = 100, myY = 250;
+let myAngle = 0;
+let moveInterval = null;
+
+function connectWS() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => console.log("WS connected");
+  ws.onclose = () => {
+    console.log("WS closed");
+    setTimeout(connectWS, 3000);
+  };
+  ws.onerror = (e) => console.log("WS error", e);
+  ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+}
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(obj));
+  }
+}
+
+function handleMessage(msg) {
+  switch(msg.type) {
+    case "register_result":
+      if (msg.success) {
+        showToast("Регистрация успешна! Войди в аккаунт.");
+        switchTab("login");
+      } else {
+        document.getElementById("auth-error").textContent = msg.reason;
+      }
+      break;
+
+    case "login_result":
+      if (msg.success) {
+        currentUser = msg.username;
+        myStats = msg.stats;
+        showLobby();
+      } else {
+        document.getElementById("auth-error").textContent = msg.reason;
+      }
+      break;
+
+    case "online_players":
+      renderPlayersList(msg.players);
+      break;
+
+    case "invite_received":
+      pendingInvite = { from: msg.from, mode: msg.mode };
+      document.getElementById("invite-text").textContent =
+        `${msg.from} приглашает тебя\nРежим: ${msg.mode}`;
+      document.getElementById("invite-modal").classList.add("show");
+      break;
+
+    case "invite_declined":
+      showToast(`${msg.from} отклонил приглашение`);
+      break;
+
+    case "game_start":
+      myTeam = msg.team;
+      myLobbyId = msg.lobby_id;
+      document.getElementById("invite-modal").classList.remove("show");
+      startGame(msg.mode);
+      break;
+
+    case "game_state":
+      gameState = msg;
+      updateHUD(msg);
+      // Find my hp
+      if (currentUser && msg.players) {
+        const me = msg.players.find(p => p.username === currentUser);
+        if (me) {
+          isAlive = me.alive;
+          document.getElementById("hp-fill").style.width = me.hp + "%";
+          document.getElementById("dead-banner").className = "dead-banner" + (me.alive ? "" : " show");
+        }
+      }
+      break;
+
+    case "round_end":
+      const winner = msg.winner;
+      const banner = document.getElementById("round-end-banner");
+      const txt = document.getElementById("round-end-text");
+      const sub = document.getElementById("round-end-sub");
+      txt.textContent = winner === myTeam ? "🏆 Ваша команда победила!" : "💀 Вы проиграли раунд";
+      txt.style.color = winner === "red" ? "#e74c3c" : "#3498db";
+      sub.textContent = `Раунд ${msg.round} начинается...`;
+      banner.classList.add("show");
+      setTimeout(() => banner.classList.remove("show"), 3000);
+      break;
+
+    case "player_left":
+      showToast(`${msg.username} покинул игру`);
+      break;
+  }
+}
+
+// Auth
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById("tab-login").classList.toggle("active", tab === "login");
+  document.getElementById("tab-register").classList.toggle("active", tab === "register");
+  document.getElementById("auth-btn").textContent = tab === "login" ? "Войти" : "Зарегистрироваться";
+  document.getElementById("auth-error").textContent = "";
+}
+
+function handleAuth() {
+  const username = document.getElementById("input-username").value.trim();
+  const password = document.getElementById("input-password").value.trim();
+  if (!username || !password) {
+    document.getElementById("auth-error").textContent = "Заполни все поля";
+    return;
+  }
+  if (currentTab === "register") {
+    send({ type: "register", username, password });
+  } else {
+    send({ type: "login", username, password });
+  }
+}
+
+function showLobby() {
+  showScreen("lobby-screen");
+  document.getElementById("lobby-avatar").textContent = currentUser[0].toUpperCase();
+  document.getElementById("lobby-username").textContent = currentUser;
+  updateStatsDisplay();
+  send({ type: "get_online" });
+}
+
+function updateStatsDisplay() {
+  document.getElementById("lobby-stats-mini").textContent =
+    `K:${myStats.kills} D:${myStats.deaths} W:${myStats.wins} L:${myStats.losses}`;
+  document.getElementById("stat-kills").textContent = myStats.kills;
+  document.getElementById("stat-deaths").textContent = myStats.deaths;
+  document.getElementById("stat-wins").textContent = myStats.wins;
+  document.getElementById("stat-losses").textContent = myStats.losses;
+}
+
+function renderPlayersList(players) {
+  const list = document.getElementById("players-list");
+  const others = players.filter(p => p.username !== currentUser);
+  if (others.length === 0) {
+    list.innerHTML = '<div class="no-players">Никого нет онлайн</div>';
+    return;
+  }
+  list.innerHTML = others.map(p => `
+    <div class="player-card">
+      <div class="pinfo">
+        <div class="player-dot"></div>
+        <div class="player-name">${p.username}</div>
+      </div>
+      <div class="invite-btns">
+        <button class="btn-invite-1v1" onclick="sendInvite('${p.username}','1v1')">1v1</button>
+        <button class="btn-invite-2v2" onclick="sendInvite('${p.username}','2v2')">2v2</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function sendInvite(target, mode) {
+  send({ type: "invite", target, mode });
+  showToast(`Приглашение отправлено → ${target}`);
+}
+
+function respondInvite(accepted) {
+  document.getElementById("invite-modal").classList.remove("show");
+  send({ type: "invite_response", accepted });
+}
+
+function logout() {
+  currentUser = null;
+  myStats = { kills: 0, deaths: 0, wins: 0, losses: 0 };
+  showScreen("auth-screen");
+}
+
+// Game
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+function startGame(mode) {
+  showScreen("game-screen");
+  initCanvas();
+  setupJoysticks();
+  startMoveLoop();
+
+  if (myTeam === "red") {
+    myX = 100; myY = 250;
+  } else {
+    myX = 700; myY = 250;
+  }
+}
+
+function initCanvas() {
+  canvas = document.getElementById("gameCanvas");
+  ctx = canvas.getContext("2d");
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+  requestAnimationFrame(renderGame);
+}
+
+function resizeCanvas() {
+  canvasW = window.innerWidth;
+  canvasH = window.innerHeight;
+  canvas.width = canvasW;
+  canvas.height = canvasH;
+  scaleX = canvasW / MAP_W;
+  scaleY = canvasH / MAP_H;
+}
+
+function updateHUD(state) {
+  document.getElementById("score-red").textContent = state.scores.red;
+  document.getElementById("score-blue").textContent = state.scores.blue;
+  document.getElementById("round-num").textContent = state.round;
+}
+
+function renderGame() {
+  if (!ctx) { requestAnimationFrame(renderGame); return; }
+  ctx.clearRect(0, 0, canvasW, canvasH);
+
+  // Background
+  ctx.fillStyle = "#1a1a2e";
+  ctx.fillRect(0, 0, canvasW, canvasH);
+
+  // Grid
+  ctx.strokeStyle = "rgba(255,255,255,0.03)";
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+  for (let x = 0; x < MAP_W; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x * scaleX, 0);
+    ctx.lineTo(x * scaleX, canvasH);
+    ctx.stroke();
+  }
+  for (let y = 0; y < MAP_H; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y * scaleY);
+    ctx.lineTo(canvasW, y * scaleY);
+    ctx.stroke();
+  }
+
+  // Walls
+  MAP_WALLS.forEach(([wx, wy, ww, wh]) => {
+    if (wy === 0 && wh === 10 || wy === 490 || wx === 0 && ww === 10 || wx === 790) {
+      ctx.fillStyle = "#0d0d1a";
+    } else {
+      ctx.fillStyle = "#2a2a4a";
+    }
+    ctx.fillRect(wx * scaleX, wy * scaleY, ww * scaleX, wh * scaleY);
+    ctx.strokeStyle = "rgba(100,100,200,0.3)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(wx * scaleX, wy * scaleY, ww * scaleX, wh * scaleY);
+  });
+
+  if (gameState) {
+    // Bullets
+    gameState.bullets && gameState.bullets.forEach(b => {
+      const bx = b.x * scaleX;
+      const by = b.y * scaleY;
+      ctx.beginPath();
+      ctx.arc(bx, by, 4 * Math.min(scaleX, scaleY), 0, Math.PI * 2);
+      ctx.fillStyle = b.team === "red" ? "#ff6b6b" : "#74b9ff";
+      ctx.fill();
+      // Glow
+      ctx.shadowColor = b.team === "red" ? "#e74c3c" : "#3498db";
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+
+    // Players
+    gameState.players && gameState.players.forEach(p => {
+      if (!p.alive) return;
+      const px = p.x * scaleX;
+      const py = p.y * scaleY;
+      const r = 15 * Math.min(scaleX, scaleY);
+      const isMe = p.username === currentUser;
+
+      // Shadow
+      ctx.beginPath();
+      ctx.arc(px, py, r + 2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.fill();
+
+      // Body
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      const baseColor = p.team === "red" ? "#e74c3c" : "#3498db";
+      const brightColor = p.team === "red" ? "#ff6b6b" : "#74b9ff";
+      const grad = ctx.createRadialGradient(px - r*0.3, py - r*0.3, 0, px, py, r);
+      grad.addColorStop(0, brightColor);
+      grad.addColorStop(1, baseColor);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Outline for me
+      if (isMe) {
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Direction line (gun)
+      const gunLen = r * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + Math.cos(p.angle) * gunLen, py + Math.sin(p.angle) * gunLen);
+      ctx.strokeStyle = isMe ? "#fff" : "rgba(255,255,255,0.5)";
+      ctx.lineWidth = 3 * Math.min(scaleX, scaleY);
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      // Username
+      ctx.fillStyle = "#fff";
+      ctx.font = `bold ${11 * Math.min(scaleX, scaleY)}px Segoe UI`;
+      ctx.textAlign = "center";
+      ctx.fillText(p.username, px, py - r - 6 * Math.min(scaleX, scaleY));
+
+      // HP bar above player
+      const barW = r * 2.5;
+      const barH = 4 * Math.min(scaleX, scaleY);
+      const barX = px - barW / 2;
+      const barY = py - r - 14 * Math.min(scaleX, scaleY);
+      ctx.fillStyle = "#333";
+      ctx.fillRect(barX, barY, barW, barH);
+      const hpColor = p.team === "red" ? "#e74c3c" : "#3498db";
+      ctx.fillStyle = hpColor;
+      ctx.fillRect(barX, barY, barW * (p.hp / 100), barH);
+    });
+  }
+
+  requestAnimationFrame(renderGame);
+}
+
+// Movement loop
+function startMoveLoop() {
+  if (moveInterval) clearInterval(moveInterval);
+  moveInterval = setInterval(() => {
+    if (!isAlive) return;
+    const speed = 3.5;
+    let nx = myX + moveJoy.dx * speed;
+    let ny = myY + moveJoy.dy * speed;
+    nx = Math.max(25, Math.min(775, nx));
+    ny = Math.max(25, Math.min(475, ny));
+
+    // Update aim angle
+    if (aimJoy.active && (Math.abs(aimJoy.dx) > 0.1 || Math.abs(aimJoy.dy) > 0.1)) {
+      myAngle = Math.atan2(aimJoy.dy, aimJoy.dx);
+    }
+
+    if (nx !== myX || ny !== myY || true) {
+      myX = nx;
+      myY = ny;
+      send({ type: "player_move", x: myX, y: myY, angle: myAngle });
+    }
+  }, 33);
+}
+
+function shootBullet() {
+  const now = Date.now();
+  if (now - lastShootTime < 400) return;
+  lastShootTime = now;
+  if (!isAlive) return;
+  send({ type: "shoot", angle: myAngle });
+}
+
+// Joysticks
+function setupJoysticks() {
+  const moveEl = document.getElementById("joystick-move");
+  const aimEl = document.getElementById("joystick-aim");
+
+  function getCenter(el) {
+    const r = el.getBoundingClientRect();
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, radius: r.width / 2 };
+  }
+
+  function updateKnob(el, knobId, dx, dy) {
+    const knob = document.getElementById(knobId);
+    const r = el.getBoundingClientRect();
+    const maxDist = r.width / 2 - 22;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const clampDist = Math.min(dist, maxDist);
+    const angle = Math.atan2(dy, dx);
+    knob.style.transform = `translate(calc(-50% + ${Math.cos(angle)*clampDist}px), calc(-50% + ${Math.sin(angle)*clampDist}px))`;
+  }
+
+  function resetKnob(knobId) {
+    document.getElementById(knobId).style.transform = "translate(-50%, -50%)";
+  }
+
+  canvas.addEventListener("touchstart", e => {
+    e.preventDefault();
+    for (let touch of e.changedTouches) {
+      const tx = touch.clientX, ty = touch.clientY;
+      const moveR = moveEl.getBoundingClientRect();
+      const aimR = aimEl.getBoundingClientRect();
+      if (tx >= moveR.left && tx <= moveR.right && ty >= moveR.top && ty <= moveR.bottom) {
+        moveJoy.active = true;
+        moveJoy.startX = moveR.left + moveR.width/2;
+        moveJoy.startY = moveR.top + moveR.height/2;
+        moveJoy.id = touch.identifier;
+      } else if (tx >= aimR.left && tx <= aimR.right && ty >= aimR.top && ty <= aimR.bottom) {
+        aimJoy.active = true;
+        aimJoy.startX = aimR.left + aimR.width/2;
+        aimJoy.startY = aimR.top + aimR.height/2;
+        aimJoy.id = touch.identifier;
+      }
+    }
+  }, { passive: false });
+
+  document.addEventListener("touchmove", e => {
+    e.preventDefault();
+    for (let touch of e.changedTouches) {
+      if (touch.identifier === moveJoy.id && moveJoy.active) {
+        const dx = touch.clientX - moveJoy.startX;
+        const dy = touch.clientY - moveJoy.startY;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        const norm = dist > 0 ? Math.min(dist, 50) / dist : 0;
+        moveJoy.dx = dx / dist * (dist > 5 ? 1 : 0);
+        moveJoy.dy = dy / dist * (dist > 5 ? 1 : 0);
+        updateKnob(moveEl, "knob-move", dx, dy);
+      }
+      if (touch.identifier === aimJoy.id && aimJoy.active) {
+        const dx = touch.clientX - aimJoy.startX;
+        const dy = touch.clientY - aimJoy.startY;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        aimJoy.dx = dist > 5 ? dx / dist : 0;
+        aimJoy.dy = dist > 5 ? dy / dist : 0;
+        updateKnob(aimEl, "knob-aim", dx, dy);
+        if (dist > 5) myAngle = Math.atan2(dy, dx);
+      }
+    }
+  }, { passive: false });
+
+  document.addEventListener("touchend", e => {
+    for (let touch of e.changedTouches) {
+      if (touch.identifier === moveJoy.id) {
+        moveJoy.active = false; moveJoy.dx = 0; moveJoy.dy = 0; moveJoy.id = -1;
+        resetKnob("knob-move");
+      }
+      if (touch.identifier === aimJoy.id) {
+        aimJoy.active = false; aimJoy.dx = 0; aimJoy.dy = 0; aimJoy.id = -1;
+        resetKnob("knob-aim");
+      }
+    }
+  });
+
+  // Shoot on aim joystick release if aimed
+  aimEl.addEventListener("touchend", e => {
+    if (Math.abs(aimJoy.dx) > 0.3 || Math.abs(aimJoy.dy) > 0.3) {
+      shootBullet();
+    }
+  });
+}
+
+function leaveGame() {
+  send({ type: "leave_game" });
+  if (moveInterval) clearInterval(moveInterval);
+  gameState = null;
+  myTeam = null;
+  myLobbyId = null;
+  isAlive = true;
+  showScreen("lobby-screen");
+  send({ type: "get_online" });
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+// Fullscreen on tap
+document.addEventListener("click", () => {
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+});
+
+// Enter key
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter") handleAuth();
+});
+
+// Init
+connectWS();
+</script>
+</body>
+</html>
