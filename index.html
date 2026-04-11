@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>X O</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: #ffffff;
+    color: #111111;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 16px;
+  }
+
+  .screen { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 360px; gap: 10px; }
+  .screen.active { display: flex; }
+
+  .logo {
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: #111;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .logo .x-color { color: #e63946; }
+  .logo .o-color { color: #1d7eea; }
+
+  .tagline {
+    font-size: 0.72rem;
+    color: #999;
+    text-align: center;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: #f7f7f7;
+    border: 1px solid #e8e8e8;
+    border-radius: 16px;
+    padding: 16px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+  }
+
+  input {
+    width: 100%;
+    padding: 10px 13px;
+    background: #fff;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 10px;
+    color: #111;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input::placeholder { color: #bbb; }
+  input:focus { border-color: #111; }
+  input.code-input {
+    text-align: center;
+    letter-spacing: 6px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ddd;
+    font-size: 0.75rem;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e8e8e8;
+  }
+
+  .btn {
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.15s;
+    letter-spacing: 0.2px;
+    width: 100%;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-black {
+    background: #111;
+    color: #fff;
+  }
+  .btn-outline {
+    background: #fff;
+    color: #111;
+    border: 1.5px solid #e0e0e0;
+  }
+  .btn-outline:hover { border-color: #111; }
+  .btn-sm {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    width: auto;
+  }
+
+  .code-box {
+    background: #fff;
+    border: 2px dashed #d0d0d0;
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+    width: 100%;
+  }
+  .code-val {
+    font-size: 2.4rem;
+    font-weight: 900;
+    letter-spacing: 8px;
+    color: #111;
+  }
+  .code-hint {
+    font-size: 0.7rem;
+    color: #aaa;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .waiting-text {
+    font-size: 0.8rem;
+    color: #aaa;
+    text-align: center;
+  }
+  .waiting-text::after {
+    content: '';
+    animation: dots 1.5s infinite;
+  }
+  @keyframes dots {
+    0%   { content: ''; }
+    33%  { content: '.'; }
+    66%  { content: '..'; }
+    100% { content: '...'; }
+  }
+
+  .players-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+  .player-badge {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: 12px;
+    background: #f7f7f7;
+    border: 1.5px solid #e8e8e8;
+    text-align: center;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .player-badge.active-turn {
+    border-color: #111;
+    background: #fff;
+  }
+  .player-badge .sym {
+    font-size: 1.5rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .player-badge .sym.x-sym { color: #e63946; }
+  .player-badge .sym.o-sym { color: #1d7eea; }
+  .player-badge .pname {
+    font-size: 0.7rem;
+    color: #999;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .player-badge.is-you .pname { color: #111; font-weight: 600; }
+
+  .status-pill {
+    width: 100%;
+    padding: 8px 14px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1.5px solid #e8e8e8;
+    background: #fafafa;
+    color: #555;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .status-pill.my-turn { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+  .status-pill.opp-turn { background: #fff; border-color: #e8e8e8; color: #aaa; }
+  .status-pill.win { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+  .status-pill.lose { background: #fff1f2; border-color: #fca5a5; color: #dc2626; }
+  .status-pill.draw { background: #f8f8f8; border-color: #d0d0d0; color: #555; }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+    aspect-ratio: 1;
+  }
+  .cell {
+    background: #f7f7f7;
+    border: 1.5px solid #e8e8e8;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.6rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: background 0.12s, transform 0.1s, border-color 0.15s;
+    aspect-ratio: 1;
+    user-select: none;
+    -webkit-user-select: none;
+    line-height: 1;
+  }
+  .cell:active { transform: scale(0.93); }
+  .cell.X { color: #e63946; background: #fff5f5; border-color: #fecdd3; }
+  .cell.O { color: #1d7eea; background: #eff6ff; border-color: #bfdbfe; }
+  .cell.win-cell.X { background: #ffe4e6; border-color: #e63946; }
+  .cell.win-cell.O { background: #dbeafe; border-color: #1d7eea; }
+  .cell.clickable:hover { background: #f0f0f0; border-color: #ccc; }
+  .cell.clickable { cursor: pointer; }
+
+  .toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-70px);
+    background: #111;
+    color: #fff;
+    padding: 9px 18px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    z-index: 999;
+    transition: transform 0.25s ease;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .row-btns {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .copy-btn {
+    padding: 6px 12px;
+    background: #111;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .copy-btn:active { opacity: 0.7; }
+</style>
+</head>
+<body>
+
+<div id="screen-menu" class="screen active">
+  <div class="logo">
+    <span class="x-sym" style="color:#e63946;font-size:1.8rem;font-weight:900;">X</span>
+    <span style="color:#ccc;font-size:1.2rem;">·</span>
+    <span class="o-sym" style="color:#1d7eea;font-size:1.8rem;font-weight:900;">O</span>
+  </div>
+  <div class="tagline">Онлайн · 2 игрока</div>
+
+  <div class="card" style="margin-top:8px;">
+    <div class="section-label">Ваше имя</div>
+    <input id="player-name" type="text" placeholder="Никнейм" maxlength="14">
+    <button class="btn btn-black" onclick="createGame()">Создать игру</button>
+    <div class="divider">или</div>
+    <div class="section-label">Код комнаты</div>
+    <input id="join-code" class="code-input" type="text" placeholder="XXXXXX" maxlength="6">
+    <button class="btn btn-outline" onclick="joinGame()">Войти</button>
+  </div>
+</div>
+
+<div id="screen-lobby" class="screen">
+  <div class="logo">
+    <span style="color:#e63946;font-size:1.8rem;font-weight:900;">X</span>
+    <span style="color:#ccc;font-size:1.2rem;">·</span>
+    <span style="color:#1d7eea;font-size:1.8rem;font-weight:900;">O</span>
+  </div>
+  <div class="card" style="align-items:center;">
+    <div class="section-label" style="text-align:center;">Код комнаты</div>
+    <div class="code-box">
+      <div class="code-val" id="lobby-code">------</div>
+      <div class="code-hint">Поделись с другом</div>
+    </div>
+    <button class="copy-btn" onclick="copyCode()">Скопировать</button>
+    <div class="waiting-text">Ждём соперника</div>
+    <button class="btn btn-outline" style="margin-top:2px;" onclick="leaveGame()">Отмена</button>
+  </div>
+</div>
+
+<div id="screen-game" class="screen">
+  <div class="players-row">
+    <div class="player-badge" id="badge-x">
+      <div class="sym x-sym">✕</div>
+      <div class="pname" id="name-x">—</div>
+    </div>
+    <div style="display:flex;align-items:center;color:#ddd;font-size:1.1rem;font-weight:300;">vs</div>
+    <div class="player-badge" id="badge-o">
+      <div class="sym o-sym">○</div>
+      <div class="pname" id="name-o">—</div>
+    </div>
+  </div>
+
+  <div class="status-pill" id="status-bar">—</div>
+  <div class="board" id="board"></div>
+
+  <div class="row-btns">
+    <button class="btn btn-outline" onclick="leaveGame()">Выйти</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://knwdfneixajdtthczeor.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtud2RmbmVpeGFqZHR0aGN6ZW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5Mjc1OTEsImV4cCI6MjA5MTUwMzU5MX0.31NBG_-93EfvEIPqHvZSoJLu3ydQ3coHXWJeDMNJfzM';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let myName = '';
+let mySymbol = '';
+let gameId = null;
+let gameCode = '';
+let channel = null;
+let gameOver = false;
+let currentBoard = ['','','','','','','','',''];
+let currentTurn = 'X';
+let winCells = [];
+
+const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function generateCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(gameCode).then(() => showToast('Код скопирован'));
+}
+
+async function createGame() {
+  const name = document.getElementById('player-name').value.trim();
+  if (!name) { showToast('Введите имя'); return; }
+  myName = name;
+  mySymbol = 'X';
+  const code = generateCode();
+  gameCode = code;
+
+  const { data, error } = await sb.from('games').insert({
+    code,
+    player_x: myName,
+    board: ['','','','','','','','',''],
+    current_turn: 'X',
+    status: 'waiting'
+  }).select().single();
+
+  if (error) { showToast('Ошибка'); console.error(error); return; }
+  gameId = data.id;
+  document.getElementById('lobby-code').textContent = code;
+  showScreen('screen-lobby');
+  subscribeToGame();
+}
+
+async function joinGame() {
+  const name = document.getElementById('player-name').value.trim();
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (!name) { showToast('Введите имя'); return; }
+  if (code.length !== 6) { showToast('Нужен 6-значный код'); return; }
+  myName = name;
+  mySymbol = 'O';
+  gameCode = code;
+
+  const { data, error } = await sb.from('games').select('*').eq('code', code).eq('status', 'waiting').single();
+  if (error || !data) { showToast('Комната не найдена'); return; }
+  gameId = data.id;
+
+  const { error: upErr } = await sb.from('games').update({
+    player_o: myName,
+    status: 'playing'
+  }).eq('id', gameId);
+  if (upErr) { showToast('Ошибка входа'); return; }
+
+  subscribeToGame();
+  renderGame({
+    board: data.board,
+    current_turn: 'X',
+    winner: null,
+    status: 'playing',
+    player_x: data.player_x,
+    player_o: myName
+  });
+  showScreen('screen-game');
+}
+
+function subscribeToGame() {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel('game-' + gameId)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'games',
+      filter: 'id=eq.' + gameId
+    }, payload => {
+      const g = payload.new;
+      if (!g) return;
+      if (g.status === 'playing' && document.getElementById('screen-lobby').classList.contains('active')) {
+        showScreen('screen-game');
+        showToast('Соперник подключился!');
+      }
+      renderGame(g);
+    })
+    .subscribe();
+}
+
+function renderGame(g) {
+  gameOver = false;
+  winCells = [];
+  currentBoard = g.board;
+  currentTurn = g.current_turn;
+
+  document.getElementById('name-x').textContent = g.player_x || '—';
+  document.getElementById('name-o').textContent = g.player_o || '...';
+
+  const badgeX = document.getElementById('badge-x');
+  const badgeO = document.getElementById('badge-o');
+
+  badgeX.classList.remove('is-you','active-turn');
+  badgeO.classList.remove('is-you','active-turn');
+
+  if (mySymbol === 'X') badgeX.classList.add('is-you');
+  else badgeO.classList.add('is-you');
+
+  if (g.status === 'playing') {
+    if (g.current_turn === 'X') badgeX.classList.add('active-turn');
+    else badgeO.classList.add('active-turn');
+  }
+
+  const statusEl = document.getElementById('status-bar');
+
+  if (g.winner) {
+    gameOver = true;
+    winCells = getWinCells(g.board);
+    if (g.winner === 'draw') {
+      statusEl.className = 'status-pill draw';
+      statusEl.textContent = 'Ничья';
+    } else if (g.winner === mySymbol) {
+      statusEl.className = 'status-pill win';
+      statusEl.textContent = 'Вы победили!';
+    } else {
+      statusEl.className = 'status-pill lose';
+      statusEl.textContent = 'Вы проиграли';
+    }
+  } else if (g.status === 'waiting') {
+    statusEl.className = 'status-pill opp-turn';
+    statusEl.textContent = 'Ждём второго игрока';
+  } else if (g.status === 'abandoned') {
+    gameOver = true;
+    statusEl.className = 'status-pill win';
+    statusEl.textContent = 'Соперник ушёл';
+  } else {
+    if (g.current_turn === mySymbol) {
+      statusEl.className = 'status-pill my-turn';
+      statusEl.textContent = 'Ваш ход';
+    } else {
+      statusEl.className = 'status-pill opp-turn';
+      statusEl.textContent = 'Ход соперника';
+    }
+  }
+
+  buildBoard(g.board);
+}
+
+function buildBoard(board) {
+  const el = document.getElementById('board');
+  el.innerHTML = '';
+  board.forEach((val, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if (val === 'X') { cell.textContent = '✕'; cell.classList.add('X'); }
+    else if (val === 'O') { cell.textContent = '○'; cell.classList.add('O'); }
+    if (winCells.includes(i)) cell.classList.add('win-cell');
+    const canClick = !gameOver && val === '' && currentTurn === mySymbol;
+    if (canClick) { cell.classList.add('clickable'); cell.onclick = () => makeMove(i); }
+    el.appendChild(cell);
+  });
+}
+
+async function makeMove(index) {
+  if (gameOver || currentBoard[index] !== '' || currentTurn !== mySymbol) return;
+  const newBoard = [...currentBoard];
+  newBoard[index] = mySymbol;
+
+  const winner = checkWinner(newBoard);
+  const nextTurn = mySymbol === 'X' ? 'O' : 'X';
+  const isDraw = !winner && newBoard.every(c => c !== '');
+
+  const update = {
+    board: newBoard,
+    current_turn: nextTurn,
+    winner: winner ? mySymbol : (isDraw ? 'draw' : null),
+    status: (winner || isDraw) ? 'finished' : 'playing'
+  };
+
+  currentBoard = newBoard;
+  currentTurn = nextTurn;
+  if (winner) { winCells = getWinCells(newBoard); gameOver = true; }
+  buildBoard(newBoard);
+
+  await sb.from('games').update(update).eq('id', gameId);
+}
+
+function checkWinner(board) {
+  return WINS.some(([a, b, c]) => board[a] && board[a] === board[b] && board[a] === board[c]);
+}
+
+function getWinCells(board) {
+  for (const [a, b, c] of WINS) {
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) return [a, b, c];
+  }
+  return [];
+}
+
+async function leaveGame() {
+  if (channel) { sb.removeChannel(channel); channel = null; }
+  if (gameId) {
+    await sb.from('games').update({ status: 'abandoned' }).eq('id', gameId);
+    gameId = null;
+  }
+  gameOver = false;
+  currentBoard = ['','','','','','','','',''];
+  document.getElementById('join-code').value = '';
+  showScreen('screen-menu');
+}
+
+document.getElementById('join-code').addEventListener('input', function() {
+  this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+});
+</script>
+</body>
+</html>
