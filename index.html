@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Drop</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;outline:none;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+:root{--bg:#0d0d0d;--bg2:#161616;--bg3:#1e1e1e;--border:#242424;--border2:#2e2e2e;--text:#f0f0f0;--text2:#888;--text3:#444;--white:#fff}
+html,body{overflow:hidden;touch-action:none;overscroll-behavior:none}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;min-height:100vh;font-size:13px;display:flex;align-items:center;justify-content:center}
+.noise{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.02;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:200px}
+.wrap{position:relative;z-index:1;width:100%;max-width:480px;padding:20px 16px}
+.drop-zone{border:1px dashed var(--border2);border-radius:16px;padding:48px 24px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;background:var(--bg2);position:relative;user-select:none}
+.drop-zone:hover,.drop-zone.over{border-color:#505050;background:var(--bg3)}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-icon{display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin:0 auto 14px;border:1px solid var(--border2);border-radius:12px;background:var(--bg3)}
+.dz-icon svg{width:20px;height:20px;stroke:#666}
+.dz-title{font-size:13px;color:var(--text2);font-weight:500;margin-bottom:4px}
+.dz-sub{font-size:11px;color:var(--text3)}
+.preview-wrap{margin-top:12px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg2);display:none}
+.preview-wrap.show{display:block}
+.preview-inner{position:relative;max-height:300px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000}
+.preview-inner img,.preview-inner video{max-width:100%;max-height:300px;display:block;object-fit:contain}
+.preview-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--border);background:var(--bg2)}
+.preview-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.preview-name{font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.preview-size{font-size:10px;color:var(--text3)}
+.preview-btns{display:flex;gap:6px;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:500;cursor:pointer;border:none;transition:opacity .15s,transform .1s;white-space:nowrap}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--white);color:#000}
+.btn-primary:hover{opacity:.85}
+.btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}
+.btn-ghost:hover{border-color:#444;color:var(--text)}
+.btn svg{width:12px;height:12px;flex-shrink:0}
+.progress-bar{height:2px;background:var(--border);margin-top:10px;border-radius:2px;overflow:hidden;display:none}
+.progress-bar.show{display:block}
+.progress-fill{height:100%;background:#fff;width:0%;transition:width .25s ease;border-radius:2px}
+.result-box{margin-top:12px;border:1px solid var(--border2);border-radius:14px;overflow:hidden;background:var(--bg2);display:none}
+.result-box.show{display:block}
+.result-inner{padding:12px}
+.link-row{display:flex;align-items:center;gap:8px}
+.link-field{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default;user-select:all;font-family:ui-monospace,monospace;letter-spacing:-.2px}
+.share-view{display:none}
+.share-page{padding:0}
+.share-media{border-radius:14px;overflow:hidden;border:1px solid var(--border);background:#000;max-height:460px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;position:relative}
+.share-media img,.share-media video{max-width:100%;max-height:460px;display:block;object-fit:contain;opacity:0;transition:opacity .2s}
+.share-media img.loaded,.share-media video.loaded{opacity:1}
+.skeleton{position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,255,255,0.02) 25%,rgba(255,255,255,0.05) 50%,rgba(255,255,255,0.02) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.share-actions{display:flex;gap:8px;justify-content:flex-end}
+.back-btn{display:inline-flex;align-items:center;gap:5px;color:var(--text3);font-size:11px;cursor:pointer;margin-bottom:16px;transition:color .15s}
+.back-btn:hover{color:var(--text2)}
+.back-btn svg{width:13px;height:13px;stroke:currentColor}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);background:#fff;color:#000;border-radius:10px;padding:8px 16px;font-size:11px;font-weight:500;opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;z-index:999;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.loading{display:flex;align-items:center;justify-content:center;padding:60px 20px;color:var(--text3);font-size:12px;gap:8px}
+.spin{width:13px;height:13px;border:1.5px solid var(--border2);border-top-color:#666;border-radius:50%;animation:spin .5s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.not-found{text-align:center;padding:60px 20px;color:var(--text3);font-size:12px}
+@media(max-width:480px){.drop-zone{padding:36px 16px}.share-media{max-height:300px}.share-media img,.share-media video{max-height:300px}}
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="wrap">
+  <div id="mainView">
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="image/*,video/*">
+      <div class="dz-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <div class="dz-title">Нажмите или перетащите</div>
+      <div class="dz-sub">Фото или видео · до 500 МБ</div>
+    </div>
+    <div class="preview-wrap" id="previewWrap">
+      <div class="preview-inner" id="previewInner"></div>
+      <div class="preview-bar">
+        <div class="preview-info">
+          <div class="preview-name" id="previewName"></div>
+          <div class="preview-size" id="previewSize"></div>
+        </div>
+        <div class="preview-btns">
+          <button class="btn btn-ghost" id="clearBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <button class="btn btn-primary" id="uploadBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Загрузить
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="result-box" id="resultBox">
+      <div class="result-inner">
+        <div class="link-row">
+          <div class="link-field" id="linkField"></div>
+          <button class="btn btn-primary" id="copyBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Копировать
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="share-view" id="shareView">
+    <div class="back-btn" id="backBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Назад
+    </div>
+    <div class="share-page">
+      <div class="share-media" id="shareMedia"></div>
+      <div class="share-actions">
+        <button class="btn btn-ghost" id="shareCopyBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Скопировать ссылку
+        </button>
+        <button class="btn btn-primary" id="dlBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Скачать
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const SB_URL='https://nxrjvabqsfgaqzhehgvv.supabase.co';
+const SB_KEY='sb_publishable_sMX0OwDVCov9wgPuxAzZdQ_LZn5oNFq';
+const sb=supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:false}});
+const BUCKET='media';
+let currentFile=null;
+let mediaCache=new Map();
+const $=id=>document.getElementById(id);
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function formatSize(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB'}
+function genToken(){const a=new Uint8Array(4);crypto.getRandomValues(a);return btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'').substring(0,6)}
+function showPreview(file){currentFile=file;const r=new FileReader();r.onload=e=>{const inner=$('previewInner');inner.innerHTML='';if(file.type.startsWith('image/')){const img=document.createElement('img');img.src=e.target.result;inner.appendChild(img)}else if(file.type.startsWith('video/')){const vid=document.createElement('video');vid.src=e.target.result;vid.controls=true;vid.muted=true;vid.preload='metadata';inner.appendChild(vid)}};r.readAsDataURL(file);$('previewName').textContent=file.name;$('previewSize').textContent=formatSize(file.size);$('previewWrap').classList.add('show');$('resultBox').classList.remove('show')}
+function clearPreview(){currentFile=null;$('fileInput').value='';$('previewWrap').classList.remove('show');$('resultBox').classList.remove('show');$('progressBar').classList.remove('show');$('progressFill').style.width='0%'}
+async function uploadFile(){if(!currentFile)return;const token=genToken();const ext=currentFile.name.split('.').pop();const path=`${token}.${ext}`;$('uploadBtn').disabled=true;$('progressBar').classList.add('show');try{const{data:storageData,error:storageError}=await sb.storage.from(BUCKET).upload(path,currentFile,{cacheControl:'31536000',upsert:false,onUploadProgress:p=>{const pct=(p.loaded/p.total)*100;$('progressFill').style.width=pct+'%'}});if(storageError)throw storageError;const{data:dbData,error:dbError}=await sb.from('media').insert([{path:path,filename:currentFile.name,mimetype:currentFile.type,size:currentFile.size,share_token:token}]).select('share_token');if(dbError)throw dbError;const finalToken=dbData&&dbData[0]?dbData[0].share_token:token;const url=`${window.location.origin}${window.location.pathname}?s=${finalToken}`;$('linkField').textContent=url;$('resultBox').classList.add('show');$('progressBar').classList.remove('show');$('previewWrap').classList.remove('show');navigator.clipboard.writeText(url).catch(()=>{})}catch(err){console.error(err);toast('Ошибка')}finally{$('uploadBtn').disabled=false}}
+async function loadShare(token){const cached=mediaCache.get(token);if(cached){renderShare(cached);return}$('shareMedia').innerHTML='<div class="loading"><span class="spin"></span>Загрузка...</div>';try{const{data,error}=await sb.from('media').select('*').eq('share_token',token).maybeSingle();if(error||!data){$('shareMedia').innerHTML='<div class="not-found">Файл не найден</div>';return}const url=sb.storage.from(BUCKET).getPublicUrl(data.path).data.publicUrl;data.publicUrl=url;mediaCache.set(token,data);renderShare(data)}catch(err){console.error(err);$('shareMedia').innerHTML='<div class="not-found">Ошибка загрузки</div>'}}
+function renderShare(data){const media=$('shareMedia');media.innerHTML='<div class="skeleton"></div>';const isImage=data.mimetype.startsWith('image/');const el=document.createElement(isImage?'img':'video');el.fetchpriority='high';if(!isImage){el.controls=true;el.preload='auto'}el.onload=el.onloadeddata=()=>{media.querySelector('.skeleton')?.remove();el.classList.add('loaded')};el.onerror=()=>{media.innerHTML='<div class="not-found">Ошибка загрузки</div>'};el.src=data.publicUrl;media.appendChild(el);$('dlBtn').onclick=async()=>{try{const res=await fetch(data.publicUrl);const blob=await res.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=data.filename;a.click();URL.revokeObjectURL(a.href)}catch(err){console.error(err);toast('Ошибка')}};$('shareCopyBtn').onclick=()=>{navigator.clipboard.writeText(window.location.href).catch(()=>{})}}
+function checkRoute(){const params=new URLSearchParams(window.location.search);const token=params.get('s');if(token){$('mainView').style.display='none';$('shareView').style.display='block';loadShare(token)}else{$('mainView').style.display='block';$('shareView').style.display='none'}}
+$('fileInput').addEventListener('change',e=>{if(e.target.files[0])showPreview(e.target.files[0])});
+$('dropZone').addEventListener('click',()=>$('fileInput').click());
+$('dropZone').addEventListener('dragover',e=>{e.preventDefault();$('dropZone').classList.add('over')});
+$('dropZone').addEventListener('dragleave',()=>$('dropZone').classList.remove('over'));
+$('dropZone').addEventListener('drop',e=>{e.preventDefault();$('dropZone').classList.remove('over');if(e.dataTransfer.files[0])showPreview(e.dataTransfer.files[0])});
+$('clearBtn').addEventListener('click',clearPreview);
+$('uploadBtn').addEventListener('click',uploadFile);
+$('copyBtn').addEventListener('click',()=>{const txt=$('linkField').textContent;navigator.clipboard.writeText(txt).catch(()=>{})});
+$('backBtn').addEventListener('click',()=>{window.history.pushState({},'',window.location.pathname);checkRoute()});
+window.addEventListener('popstate',checkRoute);
+checkRoute();
+if('serviceWorker'in navigator){navigator.serviceWorker.register('data:application/javascript,const CACHE_NAME="media-v1";self.addEventListener("install",e=>{self.skipWaiting()});self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});self.addEventListener("fetch",e=>{const url=new URL(e.request.url);if(url.hostname.includes("supabase.co")&&url.pathname.includes("/storage/v1/object/public/")){e.respondWith(caches.open(CACHE_NAME).then(cache=>cache.match(e.request).then(res=>res||fetch(e.request).then(netRes=>{if(netRes.ok)cache.put(e.request,netRes.clone());return netRes}))))}})').catch(()=>{})}
+</script>
+</body>
+</html>
