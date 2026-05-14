@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WatchClean</title>
+<style>
+:root{--bg:#080808;--bg2:#0f0f0f;--bg3:#161616;--border:#1f1f1f;--text:#e0e0e0;--muted:#555;--dim:#2a2a2a;--green:#4ade80;--blue:#60a5fa;--red:#f87171;--yellow:#facc15}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;min-height:100vh;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;font-size:14px}
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:13px 20px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;transition:.2s;user-select:none;font-size:13px}
+.tab:hover{color:#aaa}
+.tab.active{color:#fff;border-bottom-color:#fff}
+.panel{display:none;flex-direction:column;align-items:center;padding:28px 16px;min-height:calc(100vh - 46px);gap:14px}
+.panel.active{display:flex}
+.row{display:flex;gap:8px;width:100%;max-width:780px}
+input[type=text],textarea{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:7px;font-size:14px;outline:none;transition:border-color .2s;font-family:inherit}
+input[type=text]{flex:1}
+textarea{width:100%;resize:vertical;min-height:80px}
+input[type=text]:focus,textarea:focus{border-color:#333}
+input[type=text]::placeholder,textarea::placeholder{color:var(--dim)}
+.btn{background:var(--bg3);border:1px solid var(--border);color:#ccc;padding:11px 18px;border-radius:7px;cursor:pointer;font-size:13px;white-space:nowrap;transition:.2s;user-select:none}
+.btn:hover{background:#1e1e1e;color:#fff}
+.btn.primary{background:#1a2a1a;border-color:#2a4a2a;color:var(--green)}
+.btn.primary:hover{background:#1e341e}
+.btn.active-toggle{color:var(--green);border-color:#2a4a2a;background:#0f1f0f}
+.status{font-size:12px;color:var(--muted);width:100%;max-width:780px;min-height:18px;line-height:1.5}
+.status.ok{color:var(--green)}
+.status.err{color:var(--red)}
+.status.warn{color:var(--yellow)}
+.pbox{width:100%;max-width:780px;aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden;position:relative;display:none}
+.pbox iframe,.pbox video{width:100%;height:100%;border:none;position:absolute;inset:0}
+.hint{font-size:12px;color:var(--dim);width:100%;max-width:780px;line-height:1.7;border:1px solid var(--border);border-radius:7px;padding:12px 14px;background:var(--bg2)}
+.hint b{color:#888}
+.section{width:100%;max-width:780px}
+.label{font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.chips{display:flex;flex-wrap:wrap;gap:6px;width:100%;max-width:780px}
+.chip{padding:5px 11px;border-radius:20px;border:1px solid var(--border);font-size:12px;cursor:pointer;color:var(--muted);background:var(--bg2);transition:.2s;user-select:none}
+.chip:hover{color:#ccc}
+.chip.on{color:var(--green);border-color:#2a4a2a;background:#0a1a0a}
+.sep{width:100%;max-width:780px;border:none;border-top:1px solid var(--border);margin:4px 0}
+.sw-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);width:100%;max-width:780px;padding:8px 12px;background:var(--bg2);border-radius:7px;border:1px solid var(--border)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0}
+.dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot.yellow{background:var(--yellow)}
+.dot.red{background:var(--red)}
+#p5-wrap{width:100%;display:none;flex-direction:column;align-items:center}
+#p5-bar{display:flex;gap:8px;width:100%;max-width:780px;padding:20px 16px 8px}
+#p5-status{font-size:12px;color:var(--muted);width:100%;max-width:780px;padding:0 16px 6px;min-height:18px}
+#p5-controls{display:none;flex-wrap:wrap;gap:6px;width:100%;max-width:780px;padding:0 16px 10px;align-items:center}
+#p5-frame-wrap{width:100%;position:relative}
+#p5-frame{width:100%;height:calc(100vh - 150px);border:none;background:#000}
+#p5-overlay{position:absolute;inset:0;pointer-events:none;z-index:10}
+.p5-btn{background:var(--bg2);border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;transition:.2s}
+.p5-btn:hover{color:#fff}
+.p5-btn.on{color:var(--green);border-color:#2a4a2a}
+.p5-btn.danger{color:var(--red);border-color:#4a1a1a}
+.p5-btn.danger:hover{background:#1a0a0a}
+.results-list{width:100%;max-width:780px;display:flex;flex-direction:column;gap:6px}
+.result-item{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:10px 14px;cursor:pointer;transition:.2s;display:flex;gap:10px;align-items:center}
+.result-item:hover{border-color:#333;background:#111}
+.result-type{font-size:10px;padding:2px 7px;border-radius:10px;background:#1a1a1a;color:var(--muted);white-space:nowrap;flex-shrink:0}
+.result-url{font-size:12px;color:#777;word-break:break-all;flex:1}
+.result-play{color:var(--green);font-size:16px;flex-shrink:0}
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab(1)">🔍 Авто-поиск</div>
+  <div class="tab" onclick="switchTab(2)">▶ Прямая ссылка</div>
+  <div class="tab" onclick="switchTab(3)">📋 Вставить код</div>
+  <div class="tab" onclick="switchTab(4)">🛡 Защита</div>
+  <div class="tab" onclick="switchTab(5)">🌐 Сайт без рекламы</div>
+</div>
+
+<div class="panel active" id="p1">
+  <div class="row">
+    <input type="text" id="url1" placeholder="https://strangerthings.work/episodes/5-sezon-5-seriya/" />
+    <button class="btn primary" onclick="loadAuto()">Найти</button>
+  </div>
+  <div class="status" id="s1">Вставьте ссылку на страницу с сериалом</div>
+  <div class="pbox" id="pbox1"></div>
+  <div class="results-list" id="results1"></div>
+  <div class="hint">
+    <b>Как это работает:</b> страница загружается через несколько CORS-прокси, из HTML вычленяются все iframe-плееры и прямые видео-ссылки (.m3u8, .mp4). Показываются все найденные варианты — кликни на любой для просмотра.
+  </div>
+</div>
+
+<div class="panel" id="p2">
+  <div class="row">
+    <input type="text" id="url2" placeholder="https://cdn.example.com/video.m3u8 или video.mp4" />
+    <button class="btn primary" onclick="loadDirect()">Играть</button>
+  </div>
+  <div class="status" id="s2">Вставьте прямую ссылку на видеофайл</div>
+  <div class="pbox" id="pbox2">
+    <video id="vid2" controls autoplay playsinline></video>
+  </div>
+  <div class="hint">
+    <b>Где взять ссылку:</b> открой страницу с сериалом → F12 → Network → фильтр "m3u8" или "mp4" → скопируй URL нужного запроса.<br><br>
+    <b>Поддерживается:</b> .m3u8 (HLS), .mp4, .webm, .mkv, .ogg — любые прямые ссылки на видео.
+  </div>
+</div>
+
+<div class="panel" id="p3">
+  <div class="section"><div class="label">Вставьте HTML-код плеера или embed-код</div></div>
+  <div class="row" style="flex-direction:column">
+    <textarea id="embed3" placeholder='<iframe src="https://..." ...></iframe>&#10;или&#10;<script>var player = new Playerjs({"file":"..."})<\/script>'></textarea>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn primary" onclick="loadEmbed()">Запустить</button>
+      <button class="btn" onclick="document.getElementById('embed3').value=''">Очистить</button>
+    </div>
+  </div>
+  <div class="status" id="s3"></div>
+  <div class="pbox" id="pbox3"></div>
+  <div class="hint">
+    <b>Где взять:</b> на странице с сериалом → F12 → Elements → найди &lt;iframe&gt; внутри блока плеера → скопируй весь тег.<br><br>
+    Или на странице просмотра нажми ПКМ → "Просмотр кода страницы" (Ctrl+U) → Ctrl+F → ищи "iframe" или "player".
+  </div>
+</div>
+
+<div class="panel" id="p4">
+  <div class="sw-status">
+    <div class="dot" id="sw-dot"></div>
+    <span id="sw-text">Проверка Service Worker...</span>
+  </div>
+
+  <div class="section"><div class="label">Глобальная блокировка рекламы (Service Worker)</div></div>
+  <div class="chips" id="sw-chips">
+    <div class="chip on" data-key="ads" onclick="toggleChip(this)">Рекламные сети</div>
+    <div class="chip on" data-key="trackers" onclick="toggleChip(this)">Трекеры</div>
+    <div class="chip on" data-key="popups" onclick="toggleChip(this)">Попапы</div>
+    <div class="chip on" data-key="redirects" onclick="toggleChip(this)">Редиректы</div>
+    <div class="chip on" data-key="social" onclick="toggleChip(this)">Соц. виджеты</div>
+    <div class="chip on" data-key="telemetry" onclick="toggleChip(this)">Телеметрия</div>
+    <div class="chip on" data-key="crypto" onclick="toggleChip(this)">Крипто-майнеры</div>
+    <div class="chip on" data-key="push" onclick="toggleChip(this)">Push-уведомления</div>
+  </div>
+
+  <hr class="sep">
+  <div class="section"><div class="label">Блокировка на этой странице (DOM)</div></div>
+  <div class="chips">
+    <div class="chip on" id="chip-fixed" onclick="toggleFixed(this)">Фиксированные блоки</div>
+    <div class="chip on" id="chip-overlay" onclick="toggleOverlay(this)">Оверлеи поверх видео</div>
+    <div class="chip on" id="chip-cookie" onclick="toggleCookie(this)">Cookie-баннеры</div>
+    <div class="chip on" id="chip-scroll" onclick="toggleScrollLock(this)">Блокировка скролла</div>
+  </div>
+
+  <hr class="sep">
+  <div class="section"><div class="label">Защита браузера</div></div>
+  <div class="chips">
+    <div class="chip on" id="chip-open" onclick="toggleWindowOpen(this)">Блок window.open</div>
+    <div class="chip on" id="chip-hist" onclick="toggleHistory(this)">Блок history-редиректов</div>
+    <div class="chip on" id="chip-vis" onclick="toggleVisibility(this)">Блок autoplay-пауза</div>
+    <div class="chip on" id="chip-ctx" onclick="toggleContext(this)">Разрешить ПКМ везде</div>
+  </div>
+
+  <hr class="sep">
+  <div class="status" id="s4" style="color:var(--green)">✓ Все защиты активны</div>
+  <div class="hint">
+    <b>Service Worker</b> — перехватывает все сетевые запросы страницы и блокирует рекламные домены до того, как они загрузятся. Работает пока открыта вкладка.<br><br>
+    <b>DOM-блокировки</b> — каждую секунду сканируют страницу и удаляют рекламные элементы, попапы, оверлеи.<br><br>
+    <b>Защита браузера</b> — перехватывает системные API, которые используются для открытия рекламы.
+  </div>
+</div>
+
+<div class="panel" id="p5" style="padding:0">
+  <div id="p5-wrap">
+    <div id="p5-bar">
+      <input type="text" id="url5" placeholder="https://strangerthings.work/episodes/..." style="flex:1" />
+      <button class="btn primary" onclick="loadSite()">Открыть</button>
+    </div>
+    <div id="p5-status">Введите адрес сайта с сериалом</div>
+    <div id="p5-controls">
+      <span style="font-size:11px;color:var(--dim)">Блокировки:</span>
+      <button class="p5-btn on" id="p5k-popup" onclick="p5Toggle('popup',this)">🚫 Попапы</button>
+      <button class="p5-btn on" id="p5k-overlay" onclick="p5Toggle('overlay',this)">🚫 Оверлеи</button>
+      <button class="p5-btn on" id="p5k-redirect" onclick="p5Toggle('redirect',this)">🚫 Редиректы</button>
+      <button class="p5-btn on" id="p5k-banner" onclick="p5Toggle('banner',this)">🚫 Баннеры</button>
+      <button class="p5-btn on" id="p5k-cookie" onclick="p5Toggle('cookie',this)">🍪 Cookie-блок</button>
+      <button class="p5-btn on" id="p5k-scroll" onclick="p5Toggle('scroll',this)">📜 Скролл</button>
+      <button class="p5-btn danger" onclick="p5Reload()" style="margin-left:auto">↺ Обновить</button>
+      <button class="p5-btn" onclick="p5Fullscreen()">⛶ Полный экран</button>
+    </div>
+    <div id="p5-frame-wrap">
+      <iframe id="p5-frame" allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe>
+      <div id="p5-overlay"></div>
+    </div>
+  </div>
+  <div id="p5-hint" style="padding:28px 16px;color:var(--dim);font-size:13px;line-height:1.8;width:100%;max-width:780px">
+    <b style="color:#444">Сайт без рекламы</b><br><br>
+    Открывает любой сайт во встроенном окне с максимальной блокировкой:<br>
+    • Все попапы и всплывающие окна заблокированы<br>
+    • Оверлеи и перекрывающие видео блоки удаляются<br>
+    • Редиректы на рекламные сайты перехватываются<br>
+    • Cookie-баннеры скрываются<br>
+    • Баннерная реклама по классам и id убирается<br><br>
+    <b style="color:#444">⚠️ Ограничение:</b> некоторые сайты запрещают открытие в iframe (X-Frame-Options). В таком случае используйте вкладки 1 или 2.
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+<script>
+
+const AD_DOMAINS = /googlesyndication|doubleclick|googletagmanager|google-analytics|googleadservices|facebook\.net|fbcdn\.net\/ads|connect\.facebook|vk\.com\/widget|disqus\.com|mc\.yandex|metrika\.yandex|hotjar|pushwoosh|onesignal|adnxs|adsystem|rubiconproject|openx\.net|pubmatic|criteo|taboola|outbrain|revcontent|mgid|popads|popcash|trafficjunky|exoclick|hilltopads|propellerads|adsterra|juicyads|tubecorporate|adspeed|bidswitch|smartadserver|appnexus|advertising\.com|yieldmo|sharethrough|triplelift|33across|sovrn|undertone|spotxchange|videology|springserve|freewheel|innovid|tremor|teads|adhese|cxense|bluekai|lotame|liveramp|acuityads|conversant|bombora|digitru|9gag\.com\/ad|ero-advertising|etarget|juicymedia|hilltop-ads|coinzilla|coinad|coinhive|cryptoloot|miner\.pr0gramm|webminer|coinimp/i;
+
+const PROXIES = [
+  u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+  u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  u => `https://thingproxy.freeboard.io/fetch/${u}`,
+  u => `https://cors.x2u.in/${u}`
+];
+
+function switchTab(n) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === n - 1));
+  document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('active', i === n - 1));
+  if (n === 5) document.getElementById('p5-wrap').style.display = 'flex';
+}
+
+document.getElementById('url1').addEventListener('keydown', e => { if (e.key === 'Enter') loadAuto(); });
+document.getElementById('url2').addEventListener('keydown', e => { if (e.key === 'Enter') loadDirect(); });
+document.getElementById('url5').addEventListener('keydown', e => { if (e.key === 'Enter') loadSite(); });
+
+async function fetchHtml(url) {
+  for (const pf of PROXIES) {
+    try {
+      const r = await fetch(pf(url), { signal: AbortSignal.timeout(10000) });
+      if (!r.ok) continue;
+      const ct = r.headers.get('content-type') || '';
+      if (ct.includes('json')) {
+        const j = await r.json().catch(() => null);
+        if (j && j.contents && j.contents.length > 300) return j.contents;
+        continue;
+      }
+      const t = await r.text();
+      if (t && t.length > 300) return t;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function resolveUrl(src, base) {
+  try {
+    if (!src || src.length < 5) return null;
+    src = src.trim();
+    if (src.startsWith('//')) return new URL(base).protocol + src;
+    if (src.startsWith('http')) return src;
+    if (src.startsWith('/')) return new URL(src, base).href;
+    return null;
+  } catch (e) { return null; }
+}
+
+function extractAll(html, base) {
+  const res = [];
+  const seen = new Set();
+
+  const add = (type, url, label) => {
+    if (!url || seen.has(url)) return;
+    if (AD_DOMAINS.test(url)) return;
+    seen.add(url);
+    res.push({ type, url, label: label || url });
+  };
+
+  [...html.matchAll(/iframe[^>]+src\s*=\s*["']([^"']{10,})["']/gi)].forEach(m => {
+    const u = resolveUrl(m[1], base);
+    add('iframe', u, 'Iframe плеер');
+  });
+
+  [...html.matchAll(/(?:file|src|source|url|stream|hls|video)\s*[=:]\s*["']([^"']{10,}\.(?:m3u8|mp4|webm)(?:\?[^"']*)?)["']/gi)].forEach(m => {
+    const u = resolveUrl(m[1], base);
+    const ext = u && u.match(/\.(m3u8|mp4|webm)/i);
+    add('video', u, ext ? ext[1].toUpperCase() + ' видео' : 'Видео');
+  });
+
+  const pjsMatch = html.match(/new\s+Playerjs\s*\(\s*\{[^}]{0,500}?["']?file["']?\s*:\s*["']([^"']{10,})["']/i);
+  if (pjsMatch) { const u = resolveUrl(pjsMatch[1], base); add('video', u, 'PlayerJS'); }
+
+  const jwMatch = html.match(/jwplayer[^.]*\.setup\s*\(\s*\{[^}]{0,500}?file\s*:\s*["']([^"']{10,})["']/i);
+  if (jwMatch) { const u = resolveUrl(jwMatch[1], base); add('video', u, 'JWPlayer'); }
+
+  const dataMatches = [...html.matchAll(/data-(?:file|src|video|stream|hls)\s*=\s*["']([^"']{10,})["']/gi)];
+  dataMatches.forEach(m => { const u = resolveUrl(m[1], base); add('video', u, 'data-атрибут'); });
+
+  [...html.matchAll(/["'](https?:\/\/[^"']{5,}\.m3u8(?:\?[^"']*)?)["']/gi)].forEach(m => {
+    add('video', m[1], 'HLS поток');
+  });
+
+  [...html.matchAll(/["'](https?:\/\/[^"']{5,}\.mp4(?:\?[^"']*)?)["']/gi)].forEach(m => {
+    add('video', m[1], 'MP4 видео');
+  });
+
+  return res;
+}
+
+let hls1 = null;
+
+function playItem(item) {
+  const box = document.getElementById('pbox1');
+  box.innerHTML = '';
+  box.style.display = 'block';
+  document.getElementById('results1').innerHTML = '';
+  document.getElementById('s1').textContent = '▶ Играет: ' + item.url.slice(0, 70) + '...';
+  document.getElementById('s1').className = 'status ok';
+
+  if (item.type === 'video') {
+    if (hls1) { hls1.destroy(); hls1 = null; }
+    const v = document.createElement('video');
+    v.controls = true; v.autoplay = true; v.playsinline = true;
+    v.style.cssText = 'width:100%;height:100%;background:#000';
+    if (item.url.includes('.m3u8') && Hls.isSupported()) {
+      hls1 = new Hls();
+      hls1.loadSource(item.url);
+      hls1.attachMedia(v);
+      hls1.on(Hls.Events.ERROR, (e, d) => {
+        if (d.fatal) { document.getElementById('s1').textContent = '❌ Ошибка HLS: ' + d.details; document.getElementById('s1').className = 'status err'; }
+      });
+    } else {
+      v.src = item.url;
+    }
+    box.appendChild(v);
+  } else {
+    const f = document.createElement('iframe');
+    f.src = item.url;
+    f.allowFullscreen = true;
+    f.allow = 'autoplay; fullscreen; picture-in-picture';
+    f.setAttribute('referrerpolicy', 'no-referrer');
+    box.appendChild(f);
+  }
+}
+
+async function loadAuto() {
+  const raw = document.getElementById('url1').value.trim();
+  if (!raw) return;
+  const url = raw.startsWith('http') ? raw : 'https://' + raw;
+  const s = document.getElementById('s1');
+  const box = document.getElementById('pbox1');
+  const resList = document.getElementById('results1');
+
+  s.textContent = '⏳ Загружаем страницу через прокси...';
+  s.className = 'status';
+  box.style.display = 'none';
+  box.innerHTML = '';
+  resList.innerHTML = '';
+
+  const html = await fetchHtml(url);
+  if (!html) {
+    s.textContent = '❌ Не удалось загрузить страницу. Все прокси заблокированы. Попробуйте вкладку "Сайт без рекламы" или "Вставить код".';
+    s.className = 'status err';
+    return;
+  }
+
+  const found = extractAll(html, url);
+  if (!found.length) {
+    s.textContent = '⚠️ Плеер не найден автоматически. Попробуйте F12 → Network → найдите .m3u8 → вставьте во вкладку "Прямая ссылка". Или используйте вкладку "Вставить код".';
+    s.className = 'status warn';
+    return;
+  }
+
+  s.textContent = `✓ Найдено ${found.length} источник(ов). Нажмите для воспроизведения:`;
+  s.className = 'status ok';
+
+  found.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'result-item';
+    el.innerHTML = `<span class="result-type">${item.label}</span><span class="result-url">${item.url}</span><span class="result-play">▶</span>`;
+    el.onclick = () => playItem(item);
+    resList.appendChild(el);
+  });
+
+  if (found.length === 1) playItem(found[0]);
+}
+
+let hls2 = null;
+function loadDirect() {
+  const raw = document.getElementById('url2').value.trim();
+  if (!raw) return;
+  const url = raw.startsWith('http') ? raw : 'https://' + raw;
+  const s = document.getElementById('s2');
+  const box = document.getElementById('pbox2');
+  const vid = document.getElementById('vid2');
+
+  box.style.display = 'block';
+  if (hls2) { hls2.destroy(); hls2 = null; }
+
+  if (url.match(/\.m3u8/i)) {
+    if (Hls.isSupported()) {
+      hls2 = new Hls({ maxBufferLength: 60, maxBufferSize: 60 * 1000 * 1000 });
+      hls2.loadSource(url);
+      hls2.attachMedia(vid);
+      hls2.on(Hls.Events.MANIFEST_PARSED, () => { vid.play().catch(() => {}); s.textContent = '✓ HLS поток загружен'; s.className = 'status ok'; });
+      hls2.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) { s.textContent = '❌ Ошибка: ' + d.details; s.className = 'status err'; } });
+    } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+      vid.src = url; vid.play().catch(() => {});
+      s.textContent = '✓ Native HLS'; s.className = 'status ok';
+    } else {
+      s.textContent = '❌ Браузер не поддерживает HLS'; s.className = 'status err';
+    }
+  } else if (url.match(/\.(mp4|webm|mkv|ogg|avi)/i)) {
+    vid.src = url; vid.play().catch(() => {});
+    s.textContent = '✓ Видеофайл загружается...'; s.className = 'status ok';
+  } else if (url.match(/^https?:\/\//)) {
+    box.innerHTML = '';
+    const f = document.createElement('iframe');
+    f.src = url; f.allowFullscreen = true; f.allow = 'autoplay; fullscreen';
+    f.style.cssText = 'width:100%;height:100%;border:none;position:absolute;inset:0';
+    box.appendChild(f);
+    s.textContent = '✓ Открыт как iframe плеер'; s.className = 'status ok';
+  } else {
+    s.textContent = '⚠️ Укажите ссылку на .m3u8, .mp4, .webm или URL плеера'; s.className = 'status warn';
+    box.style.display = 'none';
+  }
+}
+
+function loadEmbed() {
+  const raw = document.getElementById('embed3').value.trim();
+  if (!raw) return;
+  const s = document.getElementById('s3');
+  const box = document.getElementById('pbox3');
+  box.innerHTML = '';
+
+  const iframeMatch = raw.match(/src\s*=\s*["']([^"']+)["']/i);
+  const fileMatch = raw.match(/["']?file["']?\s*:\s*["']([^"']+)["']/i);
+  const srcMatch = raw.match(/["']?src["']?\s*:\s*["']([^"']+)["']/i);
+  const urlMatch = raw.match(/https?:\/\/[^\s"'<>]+/);
+
+  let src = null;
+  let type = 'iframe';
+
+  if (iframeMatch) { src = iframeMatch[1]; }
+  else if (fileMatch) { src = fileMatch[1]; type = 'video'; }
+  else if (srcMatch) { src = srcMatch[1]; }
+  else if (urlMatch) { src = urlMatch[0]; }
+
+  if (!src) { s.textContent = '❌ Не удалось найти ссылку в коде'; s.className = 'status err'; return; }
+
+  if (src.match(/\.(m3u8|mp4|webm)/i)) type = 'video';
+
+  box.style.display = 'block';
+  s.className = 'status ok';
+
+  if (type === 'video') {
+    const v = document.createElement('video');
+    v.controls = true; v.autoplay = true; v.playsinline = true;
+    v.style.cssText = 'width:100%;height:100%;background:#000;position:absolute;inset:0';
+    if (src.includes('.m3u8') && Hls.isSupported()) {
+      const h = new Hls(); h.loadSource(src); h.attachMedia(v);
+    } else { v.src = src; }
+    box.appendChild(v);
+    s.textContent = '✓ Видео запущено: ' + src.slice(0, 60);
+  } else {
+    const f = document.createElement('iframe');
+    f.src = src; f.allowFullscreen = true; f.allow = 'autoplay; fullscreen; picture-in-picture';
+    f.style.cssText = 'width:100%;height:100%;border:none;position:absolute;inset:0';
+    box.appendChild(f);
+    s.textContent = '✓ Плеер загружен: ' + src.slice(0, 60);
+  }
+}
+
+const swChips = {};
+function toggleChip(el) {
+  const k = el.dataset.key;
+  swChips[k] = !el.classList.contains('on');
+  el.classList.toggle('on', swChips[k]);
+  updateSWStatus();
+}
+function updateSWStatus() {
+  const on = document.querySelectorAll('#sw-chips .chip.on').length;
+  document.getElementById('s4').textContent = on > 0 ? `✓ Активно ${on} категорий блокировки` : '⚠️ Все блокировки отключены';
+  document.getElementById('s4').className = on > 0 ? 'status ok' : 'status warn';
+}
+
+function toggleFixed(el) {
+  el.classList.toggle('on');
+  if (el.classList.contains('on')) startDomKiller(); else stopDomKiller();
+}
+function toggleOverlay(el) { el.classList.toggle('on'); }
+function toggleCookie(el) { el.classList.toggle('on'); }
+function toggleScrollLock(el) {
+  el.classList.toggle('on');
+  if (el.classList.contains('on')) {
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  }
+}
+function toggleWindowOpen(el) {
+  el.classList.toggle('on');
+  if (el.classList.contains('on')) {
+    window._origOpen = window._origOpen || window.open;
+    window.open = (url) => { if (!url || AD_DOMAINS.test(url)) return null; return window._origOpen(url); };
+  } else {
+    if (window._origOpen) window.open = window._origOpen;
+  }
+}
+function toggleHistory(el) {
+  el.classList.toggle('on');
+  if (el.classList.contains('on')) {
+    window._origPushState = window._origPushState || history.pushState.bind(history);
+    history.pushState = (...args) => { if (args[2] && AD_DOMAINS.test(String(args[2]))) return; window._origPushState(...args); };
+  } else {
+    if (window._origPushState) history.pushState = window._origPushState;
+  }
+}
+function toggleVisibility(el) {
+  el.classList.toggle('on');
+}
+function toggleContext(el) {
+  el.classList.toggle('on');
+  if (el.classList.contains('on')) {
+    document.addEventListener('contextmenu', allowCtx, true);
+  } else {
+    document.removeEventListener('contextmenu', allowCtx, true);
+  }
+}
+function allowCtx(e) { e.stopPropagation(); }
+
+let domInterval = null;
+function startDomKiller() {
+  if (domInterval) return;
+  domInterval = setInterval(() => {
+    const chipOverlay = document.getElementById('chip-overlay');
+    const chipCookie = document.getElementById('chip-cookie');
+    if (chipOverlay && chipOverlay.classList.contains('on')) {
+      document.querySelectorAll('body > *').forEach(el => {
+        if (el.id === 'p5-frame' || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+        const cs = getComputedStyle(el);
+        const z = parseInt(cs.zIndex || 0);
+        const pos = cs.position;
+        if (z > 1000 && (pos === 'fixed' || pos === 'absolute')) {
+          const tag = el.tagName.toLowerCase();
+          if (tag !== 'video' && tag !== 'iframe') el.style.display = 'none';
+        }
+      });
+    }
+    if (chipCookie && chipCookie.classList.contains('on')) {
+      document.querySelectorAll('[class*="cookie"],[id*="cookie"],[class*="gdpr"],[id*="gdpr"],[class*="consent"],[id*="consent"],[class*="notice"],[class*="banner"]:not(header):not(nav)').forEach(el => {
+        const cs = getComputedStyle(el);
+        if (cs.position === 'fixed' || cs.position === 'sticky') el.style.display = 'none';
+      });
+    }
+  }, 1000);
+}
+function stopDomKiller() {
+  if (domInterval) { clearInterval(domInterval); domInterval = null; }
+}
+
+function initProtections() {
+  window._origOpen = window.open;
+  window.open = (url, ...args) => {
+    if (!url || AD_DOMAINS.test(String(url))) return null;
+    return window._origOpen(url, ...args);
+  };
+
+  document.addEventListener('contextmenu', e => e.stopPropagation(), true);
+  document.addEventListener('selectstart', e => e.stopPropagation(), true);
+
+  window._origPushState = history.pushState.bind(history);
+  history.pushState = (...args) => {
+    if (args[2] && AD_DOMAINS.test(String(args[2]))) return;
+    window._origPushState(...args);
+  };
+
+  startDomKiller();
+}
+
+function initServiceWorker() {
+  if (!('serviceWorker' in navigator)) {
+    document.getElementById('sw-dot').className = 'dot red';
+    document.getElementById('sw-text').textContent = 'Service Worker не поддерживается браузером';
+    return;
+  }
+
+  const swCode = `
+const AD_DOMAINS = /googlesyndication|doubleclick|googletagmanager|google-analytics|googleadservices|facebook\\.net|fbcdn\\.net\\/ads|vk\\.com\\/widget|disqus\\.com|mc\\.yandex|metrika\\.yandex|hotjar|pushwoosh|onesignal|adnxs|adsystem|rubiconproject|openx\\.net|pubmatic|criteo|taboola|outbrain|revcontent|mgid|popads|popcash|trafficjunky|exoclick|hilltopads|propellerads|adsterra|juicyads|adspeed|bidswitch|smartadserver|appnexus|advertising\\.com|yieldmo|sharethrough|triplelift|33across|sovrn|undertone|spotxchange|springserve|freewheel|innovid|tremor|teads|cxense|bluekai|lotame|liveramp|acuityads|conversant|bombora|coinzilla|coinad|coinhive|cryptoloot|webminer|coinimp/i;
+self.addEventListener('fetch', event => {
+  const url = event.request.url;
+  if (AD_DOMAINS.test(url)) {
+    event.respondWith(new Response('', {status: 204}));
+    return;
+  }
+  const u = new URL(url);
+  if (u.hostname !== location.hostname && (url.includes('/ads/') || url.includes('/advert') || url.includes('banner') || url.includes('/pop'))) {
+    event.respondWith(new Response('', {status: 204}));
+    return;
+  }
+});
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+  `;
+
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+
+  navigator.serviceWorker.register(swUrl, { scope: '/' }).then(reg => {
+    document.getElementById('sw-dot').className = 'dot green';
+    document.getElementById('sw-text').textContent = '✓ Service Worker активен — рекламные запросы блокируются';
+    console.log('SW registered:', reg);
+  }).catch(err => {
+    document.getElementById('sw-dot').className = 'dot yellow';
+    document.getElementById('sw-text').textContent = '⚠️ SW работает в ограниченном режиме: ' + err.message;
+  });
+}
+
+const p5kills = { popup: true, overlay: true, redirect: true, banner: true, cookie: true, scroll: true };
+let p5interval = null;
+
+function p5Toggle(k, btn) {
+  p5kills[k] = !p5kills[k];
+  btn.classList.toggle('on', p5kills[k]);
+  p5ApplyKills();
+}
+
+function p5Reload() {
+  const f = document.getElementById('p5-frame');
+  f.src = f.src;
+}
+
+function p5Fullscreen() {
+  const f = document.getElementById('p5-frame');
+  if (f.requestFullscreen) f.requestFullscreen();
+  else if (f.webkitRequestFullscreen) f.webkitRequestFullscreen();
+}
+
+function p5ApplyKills() {
+  const f = document.getElementById('p5-frame');
+  try {
+    const w = f.contentWindow;
+    if (!w) return;
+    const doc = w.document;
+    if (!doc || !doc.body) return;
+
+    if (p5kills.popup) {
+      try { w.open = () => null; } catch(e){}
+      try { w.alert = () => null; } catch(e){}
+      try { w.confirm = () => false; } catch(e){}
+      try { w.prompt = () => null; } catch(e){}
+    }
+
+    if (p5kills.redirect) {
+      try {
+        const origPush = w.history.pushState.bind(w.history);
+        w.history.pushState = (...a) => { if (a[2] && AD_DOMAINS.test(String(a[2]))) return; origPush(...a); };
+      } catch(e){}
+    }
+
+    let css = '';
+    if (p5kills.banner) {
+      css += `
+        [class*="advert"],[class*=" ad-"],[id*="advert"],
+        [class*="popup"],[id*="popup"],
+        [class*="promo"],[id*="promo"],
+        [class*="sponsor"],[id*="sponsor"],
+        ins,.adsbygoogle,#ad,#ads,.ad,.ads,
+        iframe[src*="advert"],iframe[src*="doubleclick"],
+        iframe[src*="googlesyndication"]{display:none!important}
+      `;
+    }
+    if (p5kills.cookie) {
+      css += `
+        [class*="cookie"],[id*="cookie"],[class*="gdpr"],[id*="gdpr"],
+        [class*="consent"],[id*="consent"],[class*="notice"]{
+          display:none!important
+        }
+      `;
+    }
+    if (p5kills.scroll) {
+      css += `html,body{overflow:auto!important;height:auto!important}`;
+    }
+
+    let styleEl = doc.getElementById('__wclean_style__');
+    if (!styleEl) {
+      styleEl = doc.createElement('style');
+      styleEl.id = '__wclean_style__';
+      try { doc.head.appendChild(styleEl); } catch(e){}
+    }
+    styleEl.textContent = css;
+
+    if (p5kills.overlay) {
+      doc.querySelectorAll('body > *').forEach(el => {
+        const cs = getComputedStyle(el);
+        const z = parseInt(cs.zIndex || 0);
+        const pos = cs.position;
+        if (z > 999 && (pos === 'fixed' || pos === 'absolute')) {
+          const t = el.tagName.toLowerCase();
+          if (t !== 'video' && t !== 'iframe' && t !== 'script' && t !== 'style') {
+            el.remove();
+          }
+        }
+      });
+    }
+  } catch(e) {}
+}
+
+function loadSite() {
+  const raw = document.getElementById('url5').value.trim();
+  if (!raw) return;
+  const url = raw.startsWith('http') ? raw : 'https://' + raw;
+  const st = document.getElementById('p5-status');
+  const fw = document.getElementById('p5-frame-wrap');
+  const ctrl = document.getElementById('p5-controls');
+  const hint = document.getElementById('p5-hint');
+  const wrap = document.getElementById('p5-wrap');
+
+  hint.style.display = 'none';
+  fw.style.display = 'block';
+  ctrl.style.display = 'flex';
+  wrap.style.display = 'flex';
+
+  const f = document.getElementById('p5-frame');
+  f.src = url;
+  st.textContent = '⏳ Загружаем ' + url;
+  st.className = '';
+
+  if (p5interval) clearInterval(p5interval);
+
+  f.onload = () => {
+    st.textContent = '✓ Страница открыта | Блокировки применены';
+    st.className = '';
+    p5ApplyKills();
+    p5interval = setInterval(p5ApplyKills, 1500);
+  };
+
+  f.onerror = () => {
+    st.textContent = '❌ Сайт запрещает встраивание. Используйте вкладки 1, 2 или 3.';
+  };
+}
+
+initProtections();
+initServiceWorker();
+updateSWStatus();
+
+window.addEventListener('beforeunload', () => { if (p5interval) clearInterval(p5interval); if (domInterval) clearInterval(domInterval); });
+</script>
+</body>
+</html>
